@@ -62,9 +62,9 @@ export default async function DashboardOverviewPage() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+    <div className="rounded-lg border border-stone-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-teal-900">{value}</p>
     </div>
   );
 }
@@ -82,15 +82,15 @@ function Section({
 }) {
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        <Link href={href} className="text-xs font-medium text-slate-500 hover:text-slate-900">
+    <div className="rounded-lg border border-stone-200 bg-white">
+      <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+        <h2 className="text-sm font-semibold text-teal-900">{title}</h2>
+        <Link href={href} className="text-xs font-medium text-stone-500 hover:text-teal-900">
           View all
         </Link>
       </div>
-      <div className="divide-y divide-slate-100">
-        {hasChildren ? children : <p className="px-4 py-6 text-sm text-slate-400">{emptyText}</p>}
+      <div className="divide-y divide-stone-100">
+        {hasChildren ? children : <p className="px-4 py-6 text-sm text-stone-400">{emptyText}</p>}
       </div>
     </div>
   );
@@ -99,8 +99,8 @@ function Section({
 function Row({ primary, secondary }: { primary: string; secondary: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3">
-      <p className="text-sm text-slate-900">{primary}</p>
-      <p className="text-xs text-slate-500">{secondary}</p>
+      <p className="text-sm text-teal-900">{primary}</p>
+      <p className="text-xs text-stone-500">{secondary}</p>
     </div>
   );
 }

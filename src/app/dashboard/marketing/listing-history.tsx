@@ -16,7 +16,7 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
   const [isPending, startTransition] = useTransition();
 
   if (listings.length === 0) {
-    return <p className="text-sm text-slate-400">No listings generated yet.</p>;
+    return <p className="text-sm text-stone-400">No listings generated yet.</p>;
   }
 
   return (
@@ -24,16 +24,16 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
       {listings.map((listing) => {
         const posts: string[] = listing.socialPosts ? JSON.parse(listing.socialPosts) : [];
         return (
-          <div key={listing.id} className="rounded-lg border border-slate-200 bg-white p-5">
+          <div key={listing.id} className="rounded-lg border border-stone-200 bg-white p-5">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">{listing.address}</h3>
-                <p className="text-xs text-slate-500">${listing.price.toLocaleString()}</p>
+                <h3 className="text-sm font-semibold text-teal-900">{listing.address}</h3>
+                <p className="text-xs text-stone-500">${listing.price.toLocaleString()}</p>
               </div>
               <button
                 disabled={isPending}
                 onClick={() => startTransition(() => deleteListing(listing.id))}
-                className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-50"
+                className="text-xs text-stone-400 hover:text-red-600 disabled:opacity-50"
               >
                 Delete
               </button>
@@ -57,15 +57,15 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
         <button
           onClick={() => navigator.clipboard.writeText(text)}
-          className="text-xs text-slate-400 hover:text-slate-900"
+          className="text-xs text-stone-400 hover:text-teal-900"
         >
           Copy
         </button>
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{text}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-stone-700">{text}</p>
     </div>
   );
 }

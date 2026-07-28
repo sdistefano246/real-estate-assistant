@@ -48,3 +48,6 @@ next-env.d.ts
 
 # vault documentation (internal notes, not part of the shipped app)
 /Real Estate Assistant.md
+
+.vercel
+.env*

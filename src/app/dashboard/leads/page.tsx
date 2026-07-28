@@ -19,16 +19,16 @@ export default async function LeadsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-lg font-semibold text-slate-900">Leads & Email</h1>
-        <p className="text-sm text-slate-500">Track leads and send AI-drafted follow-up emails.</p>
+        <h1 className="text-lg font-semibold text-teal-900">Leads & Email</h1>
+        <p className="text-sm text-stone-500">Track leads and send AI-drafted follow-up emails.</p>
       </div>
 
       <LeadForm />
 
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Leads</h2>
+        <h2 className="mb-3 text-sm font-semibold text-teal-900">Leads</h2>
         {leads.length === 0 ? (
-          <p className="text-sm text-slate-400">No leads yet.</p>
+          <p className="text-sm text-stone-400">No leads yet.</p>
         ) : (
           <div className="flex flex-col gap-4">
             {leads.map((lead) => (

@@ -14,8 +14,8 @@ export default async function MarketingPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-lg font-semibold text-slate-900">Marketing</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-lg font-semibold text-teal-900">Marketing</h1>
+        <p className="text-sm text-stone-500">
           Generate an MLS-ready description and social posts for a new listing.
         </p>
       </div>
@@ -23,7 +23,7 @@ export default async function MarketingPage() {
       <ListingForm configured={isAnthropicConfigured()} />
 
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">History</h2>
+        <h2 className="mb-3 text-sm font-semibold text-teal-900">History</h2>
         <ListingHistory listings={listings} />
       </div>
     </div>

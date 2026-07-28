@@ -14,26 +14,26 @@ export function LeadForm() {
   }, [pending, state]);
 
   return (
-    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white p-6">
       <div>
-        <label className="block text-sm font-medium text-slate-700">Name</label>
-        <input name="name" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+        <label className="block text-sm font-medium text-stone-700">Name</label>
+        <input name="name" required className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700">Email</label>
-        <input name="email" type="email" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+        <label className="block text-sm font-medium text-stone-700">Email</label>
+        <input name="email" type="email" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700">Phone</label>
-        <input name="phone" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+        <label className="block text-sm font-medium text-stone-700">Phone</label>
+        <input name="phone" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700">Source</label>
-        <input name="source" placeholder="Zillow, referral, open house…" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+        <label className="block text-sm font-medium text-stone-700">Source</label>
+        <input name="source" placeholder="Zillow, referral, open house…" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />
       </div>
       <div className="col-span-2">
-        <label className="block text-sm font-medium text-slate-700">Notes</label>
-        <textarea name="notes" rows={2} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+        <label className="block text-sm font-medium text-stone-700">Notes</label>
+        <textarea name="notes" rows={2} className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />
       </div>
 
       {state?.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}
@@ -42,7 +42,7 @@ export function LeadForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md bg-teal-900 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add lead"}
         </button>

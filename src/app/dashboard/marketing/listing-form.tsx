@@ -23,13 +23,13 @@ export function ListingForm({ configured }: { configured: boolean }) {
   }
 
   return (
-    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white p-6">
       <div className="col-span-2">
-        <label className="block text-sm font-medium text-slate-700">Address</label>
+        <label className="block text-sm font-medium text-stone-700">Address</label>
         <input
           name="address"
           required
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
           placeholder="123 Main St, Springfield"
         />
       </div>
@@ -38,12 +38,12 @@ export function ListingForm({ configured }: { configured: boolean }) {
       <Field name="sqft" label="Square feet" type="number" />
       <Field name="price" label="Price ($)" type="number" />
       <div className="col-span-2">
-        <label className="block text-sm font-medium text-slate-700">Notable features</label>
+        <label className="block text-sm font-medium text-stone-700">Notable features</label>
         <textarea
           name="features"
           required
           rows={3}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
           placeholder="Updated kitchen, fenced backyard, two-car garage, near Riverside Park"
         />
       </div>
@@ -54,7 +54,7 @@ export function ListingForm({ configured }: { configured: boolean }) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md bg-teal-900 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
         >
           {pending ? "Generating…" : "Generate listing + social posts"}
         </button>
@@ -76,13 +76,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <label className="block text-sm font-medium text-stone-700">{label}</label>
       <input
         name={name}
         type={type}
         step={step}
         required
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
       />
     </div>
   );
