@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
@@ -11,22 +12,19 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "agent@example.com";
-  const password = "changeme123";
+  const email = process.env.SEED_AGENT_EMAIL ?? "agent@example.com";
+  const password = process.env.SEED_AGENT_PASSWORD ?? "changeme123";
+  const name = process.env.SEED_AGENT_NAME ?? "Demo Agent";
+  const businessName = process.env.SEED_AGENT_BUSINESS ?? "Demo Realty";
   const passwordHash = await bcrypt.hash(password, 10);
 
   const agent = await prisma.agent.upsert({
     where: { email },
     update: {},
-    create: {
-      email,
-      passwordHash,
-      name: "Demo Agent",
-      businessName: "Demo Realty",
-    },
+    create: { email, passwordHash, name, businessName },
   });
 
-  console.log(`Seeded agent: ${agent.email} (password: ${password} — change this after first login)`);
+  console.log(`Seeded agent: ${agent.email}`);
 }
 
 main()
