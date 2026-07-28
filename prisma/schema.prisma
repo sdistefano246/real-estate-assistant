@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  businessName String?
+  phone        String?
+  createdAt    DateTime @default(now())
+
+  listings  Listing[]
+  leads     Lead[]
+  callLogs  CallLog[]
+}
+
+model Listing {
+  id                  String   @id @default(cuid())
+  agentId             String
+  agent               Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  address              String
+  beds                Int
+  baths               Float
+  sqft                Int
+  price               Int
+  features            String
+  generatedDescription String?
+  socialPosts         String?
+  createdAt           DateTime @default(now())
+
+  @@index([agentId])
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  source    String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  emailLogs EmailLog[]
+
+  @@index([agentId])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  status    String   @default("draft")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model CallLog {
+  id           String   @id @default(cuid())
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  callerNumber String
+  missed       Boolean  @default(false)
+  textSent     Boolean  @default(false)
+  textBody     String?
+  createdAt    DateTime @default(now())
+
+  @@index([agentId])
+}
