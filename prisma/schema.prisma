@@ -203,8 +203,26 @@ model Contact {
   lastContactedAt DateTime?
   createdAt       DateTime     @default(now())
 
+  checkInLogs CheckInLog[]
+
   @@index([agentId])
   @@index([transactionId])
+}
+
+// Mirrors EmailLog/ChaseLog's draft-then-send shape, tied to a Contact instead
+// of a Lead/TransactionContact — a warm "just checking in" note, not a lead
+// follow-up or a document chase (see Phase 4 task list, 4C).
+model CheckInLog {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  status    String   @default("draft")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
 }
 
 model CallLog {
