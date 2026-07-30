@@ -1,7 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { deleteListing } from "@/app/actions/marketing";
+import { downloadPhoto, filenameFromBlobUrl } from "@/lib/download-photo";
 
 type SocialPost = { platform: string; caption: string; hashtags: string[] };
 type PhotoItem = { id: string; url: string };
@@ -33,6 +34,18 @@ function parseSocialPosts(raw: string | null): SocialPost[] {
 
 export function ListingHistory({ listings }: { listings: ListingItem[] }) {
   const [isPending, startTransition] = useTransition();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleDownload(photoId: string, photoUrl: string) {
+    setDownloadingId(photoId);
+    try {
+      await downloadPhoto(photoUrl, filenameFromBlobUrl(photoUrl));
+    } catch (e) {
+      console.error("Photo download failed:", e);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   if (listings.length === 0) {
     return <p className="text-sm text-stone-400">No listings generated yet.</p>;
@@ -62,13 +75,23 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
             {listing.photos.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {listing.photos.map((photo) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={photo.id}
-                    src={photo.url}
-                    alt={listing.address}
-                    className="h-20 w-20 rounded-md border border-stone-200 object-cover"
-                  />
+                  <div key={photo.id} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={listing.address}
+                      className="h-20 w-20 rounded-md border border-stone-200 object-cover"
+                    />
+                    <button
+                      type="button"
+                      disabled={downloadingId === photo.id}
+                      onClick={() => handleDownload(photo.id, photo.url)}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700 text-xs text-white hover:bg-teal-800 disabled:opacity-50"
+                      title="Download"
+                    >
+                      ⬇
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
