@@ -13,17 +13,19 @@ datasource db {
 }
 
 model Agent {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  businessName String?
-  phone        String?
-  createdAt    DateTime @default(now())
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  name            String
+  businessName    String?
+  phone           String?
+  autoAckEnabled  Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
-  listings  Listing[]
-  leads     Lead[]
-  callLogs  CallLog[]
+  listings     Listing[]
+  leads        Lead[]
+  callLogs     CallLog[]
+  transactions Transaction[]
 }
 
 model Listing {
@@ -44,25 +46,32 @@ model Listing {
 }
 
 model Lead {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  name      String
-  email     String?
-  phone     String?
-  source    String?
-  notes     String?
-  createdAt DateTime @default(now())
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name            String
+  email           String?
+  phone           String?
+  source          String?
+  notes           String?
+  status          String    @default("new")
+  lastContactedAt DateTime?
+  createdAt       DateTime  @default(now())
 
-  emailLogs EmailLog[]
+  emailLogs    EmailLog[]
+  textLogs     TextLog[]
+  interactions Interaction[]
+  transactions Transaction[]
 
   @@index([agentId])
+  @@index([agentId, status])
 }
 
 model EmailLog {
   id        String   @id @default(cuid())
   leadId    String
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  kind      String   @default("followup") // "followup" (manual, agent-triggered) | "instant_ack" (automatic, on inbound lead creation)
   subject   String
   body      String
   status    String   @default("draft")
@@ -70,6 +79,106 @@ model EmailLog {
   createdAt DateTime @default(now())
 
   @@index([leadId])
+}
+
+model TextLog {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  kind      String   @default("instant_ack") // only kind that exists today; field exists so a future manual-text feature doesn't collide
+  body      String
+  status    String   @default("draft")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// A quick, freeform log of a touch that isn't an EmailLog/TextLog send — a phone
+// call, an in-person chat, anything the agent wants on record. Deliberately just
+// a note and a timestamp, not a structured CRM form (see Phase 2 task list, 2A).
+model Interaction {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  note      String
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// A real deal, once a lead is under contract — deliberately its own model and its
+// own status enum rather than overloading Lead.status further (see Phase 3 task
+// list, 3A). leadId is optional since not every transaction traces back to a
+// tracked lead (an off-market referral, or an existing client from before this
+// tool existed).
+model Transaction {
+  id              String    @id @default(cuid())
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  leadId          String?
+  lead            Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  propertyAddress String
+  side            String // "buyer" | "seller"
+  contractDate    DateTime?
+  closingDate     DateTime?
+  status          String    @default("active") // "active" | "closed" | "fell_through"
+  createdAt       DateTime  @default(now())
+
+  milestones Milestone[]
+  contacts   TransactionContact[]
+
+  @@index([agentId])
+  @@index([leadId])
+}
+
+// A third party involved in a transaction — a lender, a title company, or the
+// other side's agent. Needed because chase emails go to people who aren't
+// Leads and have nowhere else to live in the schema (see Phase 3 task list, 3C).
+model TransactionContact {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  role          String // "lender" | "title" | "other_agent" | "other"
+  name          String
+  email         String
+  createdAt     DateTime    @default(now())
+
+  chaseLogs ChaseLog[]
+
+  @@index([transactionId])
+}
+
+// Mirrors EmailLog's draft-then-send shape, but tied to a TransactionContact
+// instead of a Lead — same discipline, never an autonomous send.
+model ChaseLog {
+  id                   String             @id @default(cuid())
+  transactionContactId String
+  transactionContact   TransactionContact @relation(fields: [transactionContactId], references: [id], onDelete: Cascade)
+  subject              String
+  body                 String
+  status               String             @default("draft")
+  sentAt               DateTime?
+  createdAt            DateTime           @default(now())
+
+  @@index([transactionContactId])
+}
+
+// A deadline on a transaction — deliberately freeform (a label + a date), not
+// fixed columns, since deal structure varies (cash vs. financed, buyer vs.
+// seller side, and conventions differ by state/brokerage). A default set gets
+// created when a transaction converts (see Phase 3 task list, 3B); the agent
+// can complete, delete, or add their own from there.
+model Milestone {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  label         String
+  dueDate       DateTime
+  completed     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  @@index([transactionId])
 }
 
 model CallLog {

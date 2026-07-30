@@ -43,6 +43,15 @@ its page shows a plain "add this key" banner instead of crashing.
    RESEND_FROM_EMAIL="you@yourdomain.com"
    ```
 
+### Leads & Email — website inbound form (no external account needed)
+
+Captures leads automatically from a form embedded on the agent's own website — no manual entry.
+
+1. Generate a random secret: `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`
+2. Add to `.env`: `LEAD_WEBHOOK_SECRET="paste-that-here"`
+3. The `/dashboard/leads` page shows the exact `<form>` snippet to copy, with the real
+   webhook URL and key already filled in.
+
 ### Calls (missed-call auto-text) — Twilio
 
 This one has more setup because it involves a real phone number and SMS compliance:

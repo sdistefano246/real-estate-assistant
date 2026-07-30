@@ -48,6 +48,10 @@ next-env.d.ts
 
 # vault documentation (internal notes, not part of the shipped app)
 /Real Estate Assistant.md
+/Solo Agent Day - Task Automation Map.md
+/Phase 1 Build Task List - Speed to Lead.md
+/Phase 2 Build Task List - Memory and Daily Prep.md
+/Phase 3 Build Task List - Transaction Coordination.md
 
 .vercel
 .env*

@@ -5,8 +5,10 @@ import { verifySession } from "@/lib/dal.server";
 import { prisma } from "@/lib/db.server";
 import { getAnthropicClient, isAnthropicConfigured, CLAUDE_MODEL } from "@/lib/anthropic.server";
 import { getResendClient, isResendConfigured } from "@/lib/resend.server";
+import { getTwilioClient, isTwilioConfigured } from "@/lib/twilio.server";
 import { EMAIL_SYSTEM_PROMPT, buildEmailUserPrompt } from "@/lib/prompts/email";
 import { extractJson } from "@/lib/extract-json";
+import { isLeadStatus } from "@/lib/lead-status";
 
 export type AddLeadState = { error?: string } | undefined;
 
@@ -34,6 +36,17 @@ export async function addLead(_prevState: AddLeadState, formData: FormData): Pro
 export async function deleteLead(leadId: string) {
   const { agentId } = await verifySession();
   await prisma.lead.deleteMany({ where: { id: leadId, agentId } });
+  revalidatePath("/dashboard/leads");
+}
+
+export async function updateLeadStatus(leadId: string, status: string) {
+  const { agentId } = await verifySession();
+
+  if (!isLeadStatus(status)) {
+    throw new Error(`Invalid status: ${status}`);
+  }
+
+  await prisma.lead.updateMany({ where: { id: leadId, agentId }, data: { status } });
   revalidatePath("/dashboard/leads");
 }
 
@@ -105,10 +118,73 @@ export async function sendEmail(emailLogId: string) {
     text: emailLog.body,
   });
 
-  await prisma.emailLog.update({
-    where: { id: emailLogId },
-    data: { status: "sent", sentAt: new Date() },
+  const sentAt = new Date();
+  await prisma.$transaction([
+    prisma.emailLog.update({ where: { id: emailLogId }, data: { status: "sent", sentAt } }),
+    // A manual send is the agent actually acting on the lead — resets the staleness
+    // clock. The automatic instant-ack auto-send does NOT do this (see instant-ack.server.ts) —
+    // that's unsupervised boilerplate, not real contact.
+    prisma.lead.update({ where: { id: emailLog.leadId }, data: { lastContactedAt: sentAt } }),
+  ]);
+
+  revalidatePath("/dashboard/leads");
+}
+
+export async function sendText(textLogId: string) {
+  const { agentId } = await verifySession();
+
+  if (!isTwilioConfigured()) {
+    throw new Error("Twilio is not configured");
+  }
+
+  const textLog = await prisma.textLog.findFirstOrThrow({
+    where: { id: textLogId, lead: { agentId } },
+    include: { lead: true },
   });
 
+  if (!textLog.lead.phone) {
+    throw new Error("This lead has no phone number on file");
+  }
+
+  const client = getTwilioClient();
+  await client.messages.create({
+    from: process.env.TWILIO_PHONE_NUMBER,
+    to: textLog.lead.phone,
+    body: textLog.body,
+  });
+
+  const sentAt = new Date();
+  await prisma.$transaction([
+    prisma.textLog.update({ where: { id: textLogId }, data: { status: "sent", sentAt } }),
+    prisma.lead.update({ where: { id: textLog.leadId }, data: { lastContactedAt: sentAt } }),
+  ]);
+
+  revalidatePath("/dashboard/leads");
+}
+
+export async function logInteraction(leadId: string, note: string) {
+  const { agentId } = await verifySession();
+
+  const trimmed = note.trim();
+  if (!trimmed) {
+    throw new Error("Note can't be empty");
+  }
+
+  const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, agentId } });
+
+  const loggedAt = new Date();
+  await prisma.$transaction([
+    prisma.interaction.create({ data: { leadId: lead.id, note: trimmed, createdAt: loggedAt } }),
+    // A logged touch (a call, an in-person chat, anything) is real contact just
+    // like a manual sendEmail/sendText — resets the same staleness clock.
+    prisma.lead.update({ where: { id: lead.id }, data: { lastContactedAt: loggedAt } }),
+  ]);
+
+  revalidatePath("/dashboard/leads");
+}
+
+export async function setAutoAckEnabled(enabled: boolean) {
+  const { agentId } = await verifySession();
+  await prisma.agent.update({ where: { id: agentId }, data: { autoAckEnabled: enabled } });
   revalidatePath("/dashboard/leads");
 }
