@@ -11,8 +11,10 @@ export default async function TransactionsPage() {
     where: { agentId },
     orderBy: { createdAt: "desc" },
     include: {
+      lead: true,
       milestones: { orderBy: { dueDate: "asc" } },
       contacts: { include: { chaseLogs: { orderBy: { createdAt: "desc" } } } },
+      sphereContacts: true,
     },
   });
 

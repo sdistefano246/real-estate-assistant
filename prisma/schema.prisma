@@ -26,6 +26,7 @@ model Agent {
   leads        Lead[]
   callLogs     CallLog[]
   transactions Transaction[]
+  contacts     Contact[]
 }
 
 model Listing {
@@ -125,8 +126,9 @@ model Transaction {
   status          String    @default("active") // "active" | "closed" | "fell_through"
   createdAt       DateTime  @default(now())
 
-  milestones Milestone[]
-  contacts   TransactionContact[]
+  milestones      Milestone[]
+  contacts        TransactionContact[]
+  sphereContacts  Contact[]
 
   @@index([agentId])
   @@index([leadId])
@@ -178,6 +180,30 @@ model Milestone {
   completed     Boolean     @default(false)
   createdAt     DateTime    @default(now())
 
+  @@index([transactionId])
+}
+
+// A sphere-of-influence relationship — a past client, friend, family member, or
+// referral source the agent wants to stay in touch with long-term. Deliberately
+// separate from Lead (an active prospect) rather than another Lead.status value —
+// this isn't a funnel stage, it's a different kind of relationship entirely (see
+// Phase 4 task list, 4A). transactionId is optional: some contacts trace back to
+// a closed deal, others (family, personal referral sources) never do.
+model Contact {
+  id              String       @id @default(cuid())
+  agentId         String
+  agent           Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  transactionId   String?
+  transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  name            String
+  email           String?
+  phone           String?
+  relationship    String       @default("past_client") // "past_client" | "friend" | "family" | "referral_source" | "other"
+  notes           String?
+  lastContactedAt DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([agentId])
   @@index([transactionId])
 }
 
