@@ -1,15 +1,21 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { generateListing } from "@/app/actions/marketing";
+import { PhotoUpload } from "./photo-upload";
 
-export function ListingForm({ configured }: { configured: boolean }) {
+export function ListingForm({ configured, blobConfigured }: { configured: boolean; blobConfigured: boolean }) {
   const [state, formAction, pending] = useActionState(generateListing, undefined);
   const formRef = useRef<HTMLFormElement>(null);
+  const [photoUploadKey, setPhotoUploadKey] = useState(0);
 
   useEffect(() => {
     if (!pending && !state?.error) {
       formRef.current?.reset();
+      // PhotoUpload keeps its uploaded photos in its own React state, which a
+      // native form.reset() doesn't touch — remount it so a fresh listing
+      // draft doesn't start with the last one's photos still attached.
+      setPhotoUploadKey((k) => k + 1);
     }
   }, [pending, state]);
 
@@ -47,6 +53,8 @@ export function ListingForm({ configured }: { configured: boolean }) {
           placeholder="Updated kitchen, fenced backyard, two-car garage, near Riverside Park"
         />
       </div>
+
+      <PhotoUpload key={photoUploadKey} configured={blobConfigured} />
 
       {state?.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}
 

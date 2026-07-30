@@ -1,6 +1,7 @@
 import { verifySession } from "@/lib/dal.server";
 import { prisma } from "@/lib/db.server";
 import { isAnthropicConfigured } from "@/lib/anthropic.server";
+import { isBlobConfigured } from "@/lib/blob.server";
 import { ListingForm } from "./listing-form";
 import { ListingHistory } from "./listing-history";
 
@@ -9,6 +10,7 @@ export default async function MarketingPage() {
   const listings = await prisma.listing.findMany({
     where: { agentId },
     orderBy: { createdAt: "desc" },
+    include: { photos: { orderBy: { order: "asc" } } },
   });
 
   return (
@@ -20,7 +22,7 @@ export default async function MarketingPage() {
         </p>
       </div>
 
-      <ListingForm configured={isAnthropicConfigured()} />
+      <ListingForm configured={isAnthropicConfigured()} blobConfigured={isBlobConfigured()} />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-teal-900">History</h2>

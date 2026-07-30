@@ -40,10 +40,27 @@ model Listing {
   price               Int
   features            String
   generatedDescription String?
-  socialPosts         String?
+  socialPosts         String? // JSON array of { platform, caption, hashtags } — see src/lib/prompts/listing.ts
   createdAt           DateTime @default(now())
 
+  photos ListingPhoto[]
+
   @@index([agentId])
+}
+
+// A listing's real photos, uploaded to Vercel Blob storage (this app is
+// serverless, so there's no local disk to keep files on). Deliberately just a
+// URL + order — the actual generation/upload happens client-side, this model
+// just records what landed.
+model ListingPhoto {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
 }
 
 model Lead {

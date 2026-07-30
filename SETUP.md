@@ -51,6 +51,19 @@ Captures leads automatically from a form embedded on the agent's own website —
 3. The `/dashboard/leads` page shows the exact `<form>` snippet to copy, with the real
    webhook URL and key already filled in.
 
+### Marketing — listing photos (Vercel Blob)
+
+Lets the agent attach real listing photos, shown alongside the AI-generated description and
+social posts. Uploads go straight from the browser to Blob storage (not through this app's
+server), so large photos don't hit Vercel's request size limits.
+
+1. From the Vercel dashboard: Storage → Create → Blob, or via CLI: `vercel blob create-store
+   <name> --access public --yes` from this project's directory (run once, connects automatically).
+2. That pulls a `BLOB_READ_WRITE_TOKEN` into your environment — no manual `.env` edit needed if
+   you used the CLI; otherwise copy it from the dashboard.
+3. Without this, the Marketing page shows an "add a Blob store" banner instead of the upload
+   field — description/social-post generation still works fine without it.
+
 ### Calls (missed-call auto-text) — Twilio
 
 This one has more setup because it involves a real phone number and SMS compliance:

@@ -3,6 +3,9 @@
 import { useTransition } from "react";
 import { deleteListing } from "@/app/actions/marketing";
 
+type SocialPost = { platform: string; caption: string; hashtags: string[] };
+type PhotoItem = { id: string; url: string };
+
 type ListingItem = {
   id: string;
   address: string;
@@ -10,7 +13,23 @@ type ListingItem = {
   generatedDescription: string | null;
   socialPosts: string | null;
   createdAt: Date;
+  photos: PhotoItem[];
 };
+
+function parseSocialPosts(raw: string | null): SocialPost[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Back-compat: listings generated before this update stored posts as
+    // plain strings, not { platform, caption, hashtags } objects.
+    return parsed.map((post: unknown) =>
+      typeof post === "string" ? { platform: "post", caption: post, hashtags: [] } : (post as SocialPost)
+    );
+  } catch {
+    return [];
+  }
+}
 
 export function ListingHistory({ listings }: { listings: ListingItem[] }) {
   const [isPending, startTransition] = useTransition();
@@ -22,7 +41,8 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
   return (
     <div className="flex flex-col gap-4">
       {listings.map((listing) => {
-        const posts: string[] = listing.socialPosts ? JSON.parse(listing.socialPosts) : [];
+        const posts = parseSocialPosts(listing.socialPosts);
+
         return (
           <div key={listing.id} className="rounded-lg border border-stone-200 bg-white p-5">
             <div className="flex items-start justify-between">
@@ -39,12 +59,34 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
               </button>
             </div>
 
+            {listing.photos.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {listing.photos.map((photo) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={photo.id}
+                    src={photo.url}
+                    alt={listing.address}
+                    className="h-20 w-20 rounded-md border border-stone-200 object-cover"
+                  />
+                ))}
+              </div>
+            )}
+
             {listing.generatedDescription && (
               <CopyBlock label="Description" text={listing.generatedDescription} />
             )}
 
             {posts.map((post, i) => (
-              <CopyBlock key={i} label={`Social post ${i + 1}`} text={post} />
+              <div key={i} className="mt-3 rounded-md bg-stone-50 p-3">
+                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-teal-800">
+                  {post.platform}
+                </span>
+                <CopyBlock label="Caption" text={post.caption} />
+                {post.hashtags.length > 0 && (
+                  <CopyBlock label="Hashtags" text={post.hashtags.map((h) => `#${h}`).join(" ")} />
+                )}
+              </div>
             ))}
           </div>
         );
@@ -55,7 +97,7 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
         <button

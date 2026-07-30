@@ -43,12 +43,15 @@ export async function generateListing(
     return { error: "Generation failed — no text returned. Try again." };
   }
 
-  let parsed: { description: string; socialPosts: string[] };
+  type SocialPost = { platform: string; caption: string; hashtags: string[] };
+  let parsed: { description: string; socialPosts: SocialPost[] };
   try {
     parsed = extractJson(textBlock.text);
   } catch {
     return { error: "Generation returned an unexpected format. Try again." };
   }
+
+  const photoUrls = formData.getAll("photoUrls").map(String).filter(Boolean);
 
   await prisma.listing.create({
     data: {
@@ -61,6 +64,9 @@ export async function generateListing(
       features,
       generatedDescription: parsed.description,
       socialPosts: JSON.stringify(parsed.socialPosts),
+      photos: {
+        create: photoUrls.map((url, index) => ({ url, order: index })),
+      },
     },
   });
 
