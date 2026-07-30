@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const dialStatus = params.DialCallStatus ?? "unknown";
   const wasMissed = dialStatus !== "completed";
 
-  const agent = await prisma.agent.findFirst();
+  const agent = await prisma.agent.findFirst({ orderBy: { createdAt: "asc" } });
 
   let textSent = false;
   if (wasMissed && agent) {
