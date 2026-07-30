@@ -130,3 +130,22 @@ export async function sendCheckIn(checkInLogId: string) {
 
   revalidateSpherePages();
 }
+
+export async function logContactTouch(contactId: string, note: string) {
+  const { agentId } = await verifySession();
+
+  const trimmed = note.trim();
+  if (!trimmed) {
+    throw new Error("Note can't be empty");
+  }
+
+  const contact = await prisma.contact.findFirstOrThrow({ where: { id: contactId, agentId } });
+
+  const loggedAt = new Date();
+  await prisma.$transaction([
+    prisma.contactTouch.create({ data: { contactId: contact.id, note: trimmed, createdAt: loggedAt } }),
+    prisma.contact.update({ where: { id: contact.id }, data: { lastContactedAt: loggedAt } }),
+  ]);
+
+  revalidateSpherePages();
+}
