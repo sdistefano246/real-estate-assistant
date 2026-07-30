@@ -10,6 +10,7 @@ const navItems = [
   { href: "/dashboard/leads", label: "Leads & Email" },
   { href: "/dashboard/transactions", label: "Transactions" },
   { href: "/dashboard/calls", label: "Calls" },
+  { href: "/dashboard/settings", label: "Settings" },
 ];
 
 export function NavLinks() {

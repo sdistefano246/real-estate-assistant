@@ -9,9 +9,8 @@ npm run dev
 
 Then open http://localhost:3000 — it redirects to `/login`.
 
-**Demo login** (created by `prisma/seed.ts`): `agent@example.com` / `changeme123`. There's no
-change-password screen yet — if this goes further than local testing, add one before handing it
-to a real agent.
+**Demo login** (created by `prisma/seed.ts`): `agent@example.com` / `changeme123`. Change it from
+`/dashboard/settings` before handing this to a real agent.
 
 To re-seed (e.g. after wiping the database):
 
