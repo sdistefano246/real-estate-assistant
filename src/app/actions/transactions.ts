@@ -12,7 +12,7 @@ import { isTransactionContactRole } from "@/lib/transaction-contact-role";
 import { isTransactionStatus } from "@/lib/transaction-status";
 
 function revalidateTransactionPages() {
-  revalidateTransactionPages();
+  revalidatePath("/dashboard/transactions");
   revalidatePath("/dashboard/today");
 }
 
