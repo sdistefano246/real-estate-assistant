@@ -16,6 +16,14 @@ export const getCurrentAgent = cache(async () => {
   const session = await verifySession();
   return prisma.agent.findUnique({
     where: { id: session.agentId },
-    select: { id: true, email: true, name: true, businessName: true, phone: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      businessName: true,
+      phone: true,
+      dailyDigestEnabled: true,
+      autoNurtureEnabled: true,
+    },
   });
 });

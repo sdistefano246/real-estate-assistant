@@ -1,5 +1,8 @@
 import { getCurrentAgent } from "@/lib/dal.server";
+import { isResendConfigured } from "@/lib/resend.server";
+import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { ChangePasswordForm } from "./change-password-form";
+import { AutomationSettings } from "./automation-settings";
 
 export default async function SettingsPage() {
   const agent = await getCurrentAgent();
@@ -9,6 +12,17 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-lg font-semibold text-teal-900">Settings</h1>
         <p className="text-sm text-stone-500">Signed in as {agent?.email}.</p>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-teal-900">Automation</h2>
+        <AutomationSettings
+          dailyDigestEnabled={agent?.dailyDigestEnabled ?? false}
+          autoNurtureEnabled={agent?.autoNurtureEnabled ?? false}
+          resendConfigured={isResendConfigured()}
+          anthropicConfigured={isAnthropicConfigured()}
+          cronConfigured={Boolean(process.env.CRON_SECRET)}
+        />
       </div>
 
       <div>

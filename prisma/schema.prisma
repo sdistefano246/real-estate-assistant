@@ -20,6 +20,13 @@ model Agent {
   businessName    String?
   phone           String?
   autoAckEnabled  Boolean  @default(false)
+  // Push automation (Phase 5). dailyDigestEnabled emails the agent their own
+  // "needs attention" brief on a schedule — low risk (they're emailing
+  // themselves), so it defaults on. autoNurtureEnabled sends warm check-ins to
+  // sphere contacts unsupervised — real outbound to real people, so it mirrors
+  // autoAckEnabled and defaults OFF until the agent opts in.
+  dailyDigestEnabled Boolean @default(true)
+  autoNurtureEnabled Boolean @default(false)
   createdAt       DateTime @default(now())
 
   listings     Listing[]

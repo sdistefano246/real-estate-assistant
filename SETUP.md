@@ -85,6 +85,35 @@ This one has more setup because it involves a real phone number and SMS complian
 
 The `/dashboard/calls` page repeats these steps in context.
 
+### Automation — daily digest + auto-nurture (scheduled job)
+
+Everything else in this app is pull-based: the "needs attention" items, the nurture cadence, and
+the deadline warnings only surface when the agent opens the dashboard. The automation job pushes
+instead — it runs on a schedule and reaches the agent (and their sphere) without anyone logging in.
+
+Two behaviours, each toggled from `/dashboard/settings` → **Automation**:
+
+- **Daily digest** (on by default): one email each morning listing stale leads, upcoming
+  deadlines, and sphere contacts due for a check-in. Only sends on days something actually needs
+  attention. Needs the **Resend** keys above to reach the inbox.
+- **Auto-send sphere check-ins** (off by default): when a contact passes their 90-day cadence,
+  Claude drafts and Resend sends a warm check-in with no review step (capped at five per day,
+  contacts without an email are skipped). Needs both **Anthropic** and **Resend** keys. This is
+  real unsupervised outbound, so it stays off until you turn it on — the draft-and-review flow on
+  the Sphere page works regardless.
+
+To run it on a schedule:
+
+1. Generate a secret: `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`
+2. Add to `.env` (and your Vercel project env): `CRON_SECRET="paste-that-here"`
+3. `vercel.json` already declares a daily cron hitting `/api/cron` at 13:00 UTC. Vercel sends that
+   request with `Authorization: Bearer $CRON_SECRET`, which the endpoint checks — without the
+   secret set, the endpoint refuses to run rather than sit open to the internet.
+4. Optionally set `APP_URL="https://your-domain.com"` so the digest email can link back into the
+   dashboard (on Vercel it falls back to the deployment URL automatically).
+
+To trigger a run by hand (e.g. to test): `curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron`
+
 ## Before deploying: swap SQLite for a real database
 
 SQLite is a single file (`dev.db`) — that works locally but **will not persist** on serverless
