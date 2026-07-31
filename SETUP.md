@@ -114,6 +114,16 @@ To run it on a schedule:
 
 To trigger a run by hand (e.g. to test): `curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron`
 
+### Calendar feed (subscribe from Google / Apple / Outlook)
+
+No external account needed. From `/dashboard/settings` → **Calendar**, generate a link and paste it
+into Google Calendar (*Other calendars → From URL*), Apple Calendar (*File → New Calendar
+Subscription*), or Outlook. It serves a live iCal feed of closing dates, open transaction
+deadlines, and buyer showings that the calendar app refreshes on its own schedule. The link is
+authenticated only by the unguessable token in the URL — "Regenerate" rotates it (revoking the old
+one) and "Turn off" disables the feed. Set `APP_URL` so the settings page can show the full
+subscription URL rather than a relative path.
+
 ## Before deploying: swap SQLite for a real database
 
 SQLite is a single file (`dev.db`) — that works locally but **will not persist** on serverless

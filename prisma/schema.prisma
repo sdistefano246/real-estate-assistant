@@ -27,6 +27,11 @@ model Agent {
   // autoAckEnabled and defaults OFF until the agent opts in.
   dailyDigestEnabled Boolean @default(true)
   autoNurtureEnabled Boolean @default(false)
+  // Opaque secret in the agent's private iCal feed URL. Calendar apps fetch a
+  // subscription URL with no auth header, so the unguessable token IS the
+  // credential; regenerating it revokes any previously shared link. Null until
+  // the agent first generates a feed.
+  calendarToken   String?  @unique
   createdAt       DateTime @default(now())
 
   listings     Listing[]
