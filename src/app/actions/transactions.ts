@@ -16,6 +16,43 @@ function revalidateTransactionPages() {
   revalidatePath("/dashboard/today");
 }
 
+function parseOptionalInt(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").replace(/[$,\s]/g, "");
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// Commission rate is a percent (e.g. 2.5). Cap at 100 to reject fat-finger
+// entries like "250"; a null clears it back to "use the assumed default".
+function parseOptionalRate(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").replace(/[%,\s]/g, "");
+  if (!raw) return null;
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+}
+
+export async function setTransactionFinancials(
+  transactionId: string,
+  salePrice: number | null,
+  commissionRate: number | null
+) {
+  const { agentId } = await verifySession();
+
+  const cleanPrice = salePrice != null && Number.isFinite(salePrice) && salePrice >= 0 ? Math.round(salePrice) : null;
+  const cleanRate =
+    commissionRate != null && Number.isFinite(commissionRate) && commissionRate >= 0 && commissionRate <= 100
+      ? commissionRate
+      : null;
+
+  await prisma.transaction.updateMany({
+    where: { id: transactionId, agentId },
+    data: { salePrice: cleanPrice, commissionRate: cleanRate },
+  });
+  revalidateTransactionPages();
+  revalidatePath("/dashboard/analytics");
+}
+
 export type ConvertToTransactionState = { error?: string } | undefined;
 
 export async function convertToTransaction(
@@ -46,11 +83,24 @@ export async function convertToTransaction(
     return { error: "Closing date is required." };
   }
 
+  const salePrice = parseOptionalInt(formData.get("salePrice"));
+  const commissionRate = parseOptionalRate(formData.get("commissionRate"));
+
   const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, agentId } });
 
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({
-      data: { agentId, leadId: lead.id, propertyAddress, side, contractDate, closingDate, status: "active" },
+      data: {
+        agentId,
+        leadId: lead.id,
+        propertyAddress,
+        side,
+        contractDate,
+        closingDate,
+        status: "active",
+        salePrice,
+        commissionRate,
+      },
     });
 
     const milestones = buildDefaultMilestones(contractDate, closingDate);
@@ -62,6 +112,8 @@ export async function convertToTransaction(
   });
 
   revalidatePath("/dashboard/leads");
+  revalidatePath("/dashboard/transactions");
+  revalidatePath("/dashboard/analytics");
   return undefined;
 }
 

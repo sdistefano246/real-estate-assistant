@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useTransition, useActionState } from "react";
-import { addMilestone, addTransactionContact, updateTransactionStatus } from "@/app/actions/transactions";
+import {
+  addMilestone,
+  addTransactionContact,
+  updateTransactionStatus,
+  setTransactionFinancials,
+} from "@/app/actions/transactions";
 import { addContact } from "@/app/actions/contacts";
+import { computeGci, usedAssumedRate } from "@/lib/commission";
 import {
   TRANSACTION_STATUSES,
   TRANSACTION_STATUS_LABELS,
@@ -21,6 +27,10 @@ import {
 import { MilestoneRow } from "./milestone-row";
 import { ContactBlock } from "./contact-block";
 
+function formatUsd(n: number): string {
+  return `$${n.toLocaleString()}`;
+}
+
 type MilestoneItem = { id: string; label: string; dueDate: Date; completed: boolean };
 type ChaseLogItem = { id: string; subject: string; body: string; status: string };
 type ContactItem = { id: string; role: string; name: string; email: string; chaseLogs: ChaseLogItem[] };
@@ -34,6 +44,8 @@ type TransactionItem = {
   status: string;
   contractDate: Date | null;
   closingDate: Date | null;
+  salePrice: number | null;
+  commissionRate: number | null;
   milestones: MilestoneItem[];
   contacts: ContactItem[];
   sphereContacts: SphereContactItem[];
@@ -60,6 +72,28 @@ export function TransactionCard({
 
   const [showAddSphereContact, setShowAddSphereContact] = useState(false);
   const [sphereContactState, sphereContactFormAction, sphereContactPending] = useActionState(addContact, undefined);
+
+  const [showEditFinancials, setShowEditFinancials] = useState(false);
+  const [priceInput, setPriceInput] = useState(transaction.salePrice != null ? String(transaction.salePrice) : "");
+  const [rateInput, setRateInput] = useState(transaction.commissionRate != null ? String(transaction.commissionRate) : "");
+
+  const gci = computeGci(transaction.salePrice, transaction.commissionRate);
+  const gciAssumed = usedAssumedRate(transaction.salePrice, transaction.commissionRate);
+
+  function submitFinancials() {
+    const price = priceInput.replace(/[$,\s]/g, "").trim();
+    const rate = rateInput.replace(/[%,\s]/g, "").trim();
+    const salePrice = price ? Number.parseInt(price, 10) : null;
+    const commissionRate = rate ? Number.parseFloat(rate) : null;
+    startTransition(async () => {
+      await setTransactionFinancials(
+        transaction.id,
+        salePrice != null && Number.isFinite(salePrice) ? salePrice : null,
+        commissionRate != null && Number.isFinite(commissionRate) ? commissionRate : null
+      );
+      setShowEditFinancials(false);
+    });
+  }
 
   function submitMilestone() {
     if (!milestoneLabel.trim() || !milestoneDate) return;
@@ -94,6 +128,77 @@ export function TransactionCard({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="mt-4 border-t border-stone-100 pt-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">Deal financials</h4>
+          {!showEditFinancials && (
+            <button
+              onClick={() => setShowEditFinancials(true)}
+              className="text-xs font-medium text-stone-500 hover:text-stone-800"
+            >
+              {transaction.salePrice != null ? "Edit" : "+ Add sale price"}
+            </button>
+          )}
+        </div>
+
+        {!showEditFinancials && (
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-stone-600">
+            {transaction.salePrice != null ? (
+              <>
+                <span>Sale price: {formatUsd(transaction.salePrice)}</span>
+                <span>
+                  Commission: {transaction.commissionRate != null ? `${transaction.commissionRate}%` : "—"}
+                </span>
+                {gci != null && (
+                  <span className="font-medium text-teal-900">
+                    GCI: {formatUsd(gci)}
+                    {gciAssumed && <span className="font-normal text-stone-400"> (assumed rate)</span>}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-stone-400">No sale price yet — add one for commission tracking in Reports.</span>
+            )}
+          </div>
+        )}
+
+        {showEditFinancials && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              inputMode="numeric"
+              placeholder="Sale price"
+              className="w-36 rounded-md border border-stone-300 px-2 py-1 text-xs"
+            />
+            <input
+              value={rateInput}
+              onChange={(e) => setRateInput(e.target.value)}
+              inputMode="decimal"
+              placeholder="Commission %"
+              className="w-28 rounded-md border border-stone-300 px-2 py-1 text-xs"
+            />
+            <button
+              disabled={isPending}
+              onClick={submitFinancials}
+              className="rounded-md bg-teal-900 px-2 py-1 text-xs font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setShowEditFinancials(false);
+                setPriceInput(transaction.salePrice != null ? String(transaction.salePrice) : "");
+                setRateInput(transaction.commissionRate != null ? String(transaction.commissionRate) : "");
+              }}
+              className="text-xs text-stone-400 hover:text-stone-700"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 border-t border-stone-100 pt-4">

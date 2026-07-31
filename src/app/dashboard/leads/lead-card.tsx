@@ -221,6 +221,18 @@ export function LeadCard({
               Closing date
               <input name="closingDate" type="date" required className="rounded-md border border-stone-300 px-2 py-1.5 text-xs" />
             </label>
+            <input
+              name="salePrice"
+              inputMode="numeric"
+              placeholder="Sale price (optional)"
+              className="w-36 rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+            />
+            <input
+              name="commissionRate"
+              inputMode="decimal"
+              placeholder="Comm. % (opt.)"
+              className="w-28 rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+            />
             <button
               type="submit"
               disabled={convertPending}

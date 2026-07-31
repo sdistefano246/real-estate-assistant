@@ -2,12 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db.server";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@/lib/lead-status";
 import { BUYER_STATUSES, BUYER_STATUS_LABELS, type BuyerStatus } from "@/lib/buyer-status";
-
-// The commission rate used only to turn represented pipeline VALUE into a rough
-// gross-commission figure. It's a single assumption, surfaced in the UI label so
-// nobody mistakes the estimate for booked GCI — the app doesn't track a real
-// per-transaction sale price or commission split yet.
-export const ASSUMED_COMMISSION_RATE = 0.025;
+import { ASSUMED_COMMISSION_PERCENT, computeGci, usedAssumedRate } from "@/lib/commission";
 
 const MONTHS_BACK = 6;
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -21,7 +16,10 @@ export async function getAnalytics(agentId: string) {
   const [leads, transactions, buyers, listings, showingsCompleted, emailsSent, textsSent] =
     await Promise.all([
       prisma.lead.findMany({ where: { agentId }, select: { status: true, source: true, createdAt: true } }),
-      prisma.transaction.findMany({ where: { agentId }, select: { status: true, side: true } }),
+      prisma.transaction.findMany({
+        where: { agentId },
+        select: { status: true, side: true, salePrice: true, commissionRate: true },
+      }),
       prisma.buyer.findMany({ where: { agentId }, select: { status: true, maxPrice: true } }),
       prisma.listing.findMany({ where: { agentId }, select: { price: true } }),
       prisma.showing.count({ where: { completed: true, buyer: { agentId } } }),
@@ -67,6 +65,29 @@ export async function getAnalytics(agentId: string) {
   const closeRate = concluded > 0 ? closedTxns / concluded : 0;
   const sideCounts = countBy(transactions, (t) => t.side);
 
+  // --- Real GCI from transaction financials ---
+  // Closed = commission earned on deals that closed; pipeline = commission at
+  // stake on deals still active. Both only count transactions that actually have
+  // a sale price entered; assumedRateUsed flags that at least one fell back to
+  // the default commission rate (so the UI can caveat the number).
+  let closedGci = 0;
+  let pipelineGci = 0;
+  let pricedClosed = 0;
+  let pricedActive = 0;
+  let assumedRateUsed = false;
+  for (const t of transactions) {
+    const gci = computeGci(t.salePrice, t.commissionRate);
+    if (gci == null) continue;
+    if (usedAssumedRate(t.salePrice, t.commissionRate)) assumedRateUsed = true;
+    if (t.status === "closed") {
+      closedGci += gci;
+      pricedClosed += 1;
+    } else if (t.status === "active") {
+      pipelineGci += gci;
+      pricedActive += 1;
+    }
+  }
+
   // --- Buyer pipeline ---
   const buyerCounts = countBy(buyers, (b) => b.status);
   const buyerPipeline: StatusCount[] = BUYER_STATUSES.map((status) => ({
@@ -83,8 +104,7 @@ export async function getAnalytics(agentId: string) {
   const buyerBudgetValue = buyers
     .filter((b) => (b.status === "active" || b.status === "under_contract") && b.maxPrice != null)
     .reduce((sum, b) => sum + (b.maxPrice ?? 0), 0);
-  const pipelineValue = listedValue + buyerBudgetValue;
-  const estimatedGci = Math.round(pipelineValue * ASSUMED_COMMISSION_RATE);
+  const representedValue = listedValue + buyerBudgetValue;
 
   // --- New leads per month (last 6 months, oldest first) ---
   const activity: MonthBucket[] = buildMonthBuckets(leads.map((l) => l.createdAt));
@@ -112,12 +132,18 @@ export async function getAnalytics(agentId: string) {
       sellerSide: sideCounts.get("seller") ?? 0,
     },
     buyerPipeline,
-    pipeline: {
+    gci: {
+      closedGci,
+      pipelineGci,
+      pricedClosed,
+      pricedActive,
+      assumedRateUsed,
+      assumedRatePercent: ASSUMED_COMMISSION_PERCENT,
+    },
+    representedValue: {
       listedValue,
       buyerBudgetValue,
-      pipelineValue,
-      estimatedGci,
-      commissionRate: ASSUMED_COMMISSION_RATE,
+      total: representedValue,
     },
     activity,
   };

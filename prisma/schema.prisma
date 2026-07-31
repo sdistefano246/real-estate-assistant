@@ -150,6 +150,13 @@ model Transaction {
   contractDate    DateTime?
   closingDate     DateTime?
   status          String    @default("active") // "active" | "closed" | "fell_through"
+  // Deal financials, both optional — the agent may not know the number at
+  // conversion and can fill it in later. salePrice is the contract price;
+  // commissionRate is this side's rate as a percent (e.g. 2.5 = 2.5%). Together
+  // they drive real GCI in Reports; when the rate is blank an assumed default
+  // is used just for the estimate.
+  salePrice       Int?
+  commissionRate  Float?
   createdAt       DateTime  @default(now())
 
   milestones      Milestone[]

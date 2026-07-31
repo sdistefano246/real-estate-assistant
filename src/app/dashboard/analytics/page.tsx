@@ -33,20 +33,43 @@ export default async function AnalyticsPage() {
         <Tile label="Total leads" value={a.totals.totalLeads.toString()} sub={`${a.totals.openLeads} still open`} />
         <Tile label="Lead conversion" value={pct(a.leadConversionRate)} sub={`${a.totals.convertedLeads} converted`} />
         <Tile label="Active deals" value={a.totals.activeTxns.toString()} sub={`${a.totals.closedTxns} closed`} />
-        <Tile label={`Est. GCI @ ${pct(a.pipeline.commissionRate)}`} value={compactUsd(a.pipeline.estimatedGci)} sub="rough estimate" />
+        <Tile label="Pipeline GCI" value={compactUsd(a.gci.pipelineGci)} sub="commission at stake" />
       </div>
 
-      {/* Pipeline value */}
-      <Section title="Estimated pipeline value">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <ValueCard label="Listed inventory (seller side)" value={compactUsd(a.pipeline.listedValue)} />
-          <ValueCard label="Buyer budgets (active buyers)" value={compactUsd(a.pipeline.buyerBudgetValue)} />
-          <ValueCard label="Total under representation" value={compactUsd(a.pipeline.pipelineValue)} highlight />
+      {/* Commission / GCI (real, from transaction financials) */}
+      <Section title="Commission (GCI)">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ValueCard
+            label={`Earned — closed deals${a.gci.pricedClosed ? ` (${a.gci.pricedClosed})` : ""}`}
+            value={compactUsd(a.gci.closedGci)}
+            highlight
+          />
+          <ValueCard
+            label={`Pipeline — active deals${a.gci.pricedActive ? ` (${a.gci.pricedActive})` : ""}`}
+            value={compactUsd(a.gci.pipelineGci)}
+          />
         </div>
         <p className="mt-3 text-xs text-stone-400">
-          An estimate of value you&apos;re representing — listed homes plus the budgets of buyers still
-          searching. The GCI figure applies an assumed {pct(a.pipeline.commissionRate)} commission and is a
-          rough sense of gross potential, not booked revenue.
+          {a.gci.pricedClosed + a.gci.pricedActive === 0
+            ? "Add a sale price to a transaction (on conversion, or from its card) to see real commission here."
+            : `Based on the sale price and commission rate on each deal.${
+                a.gci.assumedRateUsed
+                  ? ` Deals with no rate entered assume ${a.gci.assumedRatePercent}%.`
+                  : ""
+              }`}
+        </p>
+      </Section>
+
+      {/* Represented value (estimate) */}
+      <Section title="Value under representation">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <ValueCard label="Listed inventory (seller side)" value={compactUsd(a.representedValue.listedValue)} />
+          <ValueCard label="Buyer budgets (active buyers)" value={compactUsd(a.representedValue.buyerBudgetValue)} />
+          <ValueCard label="Total" value={compactUsd(a.representedValue.total)} highlight />
+        </div>
+        <p className="mt-3 text-xs text-stone-400">
+          A rough estimate of the value you&apos;re representing — listed homes plus the budgets of buyers
+          still searching. Not booked revenue.
         </p>
       </Section>
 
