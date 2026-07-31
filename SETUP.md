@@ -94,8 +94,8 @@ instead — it runs on a schedule and reaches the agent (and their sphere) witho
 Two behaviours, each toggled from `/dashboard/settings` → **Automation**:
 
 - **Daily digest** (on by default): one email each morning listing stale leads, upcoming
-  deadlines, and sphere contacts due for a check-in. Only sends on days something actually needs
-  attention. Needs the **Resend** keys above to reach the inbox.
+  deadlines, buyer showings coming up, and sphere contacts due for a check-in. Only sends on days
+  something actually needs attention. Needs the **Resend** keys above to reach the inbox.
 - **Auto-send sphere check-ins** (off by default): when a contact passes their 90-day cadence,
   Claude drafts and Resend sends a warm check-in with no review step (capped at five per day,
   contacts without an email are skipped). Needs both **Anthropic** and **Resend** keys. This is

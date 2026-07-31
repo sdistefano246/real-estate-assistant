@@ -8,6 +8,7 @@ const navItems = [
   { href: "/dashboard/today", label: "Today" },
   { href: "/dashboard/marketing", label: "Marketing" },
   { href: "/dashboard/leads", label: "Leads & Email" },
+  { href: "/dashboard/buyers", label: "Buyers" },
   { href: "/dashboard/transactions", label: "Transactions" },
   { href: "/dashboard/sphere", label: "Sphere" },
   { href: "/dashboard/calls", label: "Calls" },

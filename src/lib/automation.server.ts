@@ -6,6 +6,7 @@ import { generateCheckIn } from "@/lib/check-in.server";
 import { getStaleLeads } from "@/lib/stale-leads.server";
 import { getUrgentMilestones } from "@/lib/urgent-milestones.server";
 import { getContactsDueForTouch } from "@/lib/contacts-due.server";
+import { getUpcomingShowings } from "@/lib/upcoming-showings.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 
 // A single scheduled run should never blast an entire back-catalog of quiet
@@ -141,15 +142,21 @@ async function runAutoNurture(agent: AutomationAgent): Promise<{ sent: number; s
 // --- Daily digest --------------------------------------------------------
 
 async function sendDailyDigest(agent: AutomationAgent): Promise<boolean> {
-  const [staleLeads, urgentMilestones, dueContacts] = await Promise.all([
+  const [staleLeads, urgentMilestones, dueContacts, upcomingShowings] = await Promise.all([
     getStaleLeads(agent.id),
     getUrgentMilestones(agent.id),
     getContactsDueForTouch(agent.id),
+    getUpcomingShowings(agent.id),
   ]);
 
   // Nothing needs the agent today — don't send an empty "all clear" every
   // morning. Silence is the signal.
-  if (staleLeads.length === 0 && urgentMilestones.length === 0 && dueContacts.length === 0) {
+  if (
+    staleLeads.length === 0 &&
+    urgentMilestones.length === 0 &&
+    dueContacts.length === 0 &&
+    upcomingShowings.length === 0
+  ) {
     return false;
   }
 
@@ -163,6 +170,7 @@ async function sendDailyDigest(agent: AutomationAgent): Promise<boolean> {
     staleLeads,
     urgentMilestones,
     dueContacts,
+    upcomingShowings,
   });
 
   const resend = getResendClient();
@@ -182,84 +190,61 @@ type DigestInput = {
   staleLeads: Awaited<ReturnType<typeof getStaleLeads>>;
   urgentMilestones: Awaited<ReturnType<typeof getUrgentMilestones>>;
   dueContacts: Awaited<ReturnType<typeof getContactsDueForTouch>>;
+  upcomingShowings: Awaited<ReturnType<typeof getUpcomingShowings>>;
 };
 
 function buildDigestEmail(input: DigestInput): { subject: string; text: string; html: string } {
-  const { agentName, staleLeads, urgentMilestones, dueContacts } = input;
+  const { agentName, staleLeads, urgentMilestones, dueContacts, upcomingShowings } = input;
   const baseUrl = getAppBaseUrl();
   const todayUrl = baseUrl ? `${baseUrl}/dashboard/today` : null;
+  const buyersUrl = baseUrl ? `${baseUrl}/dashboard/buyers` : null;
   const sphereUrl = baseUrl ? `${baseUrl}/dashboard/sphere` : null;
 
-  const total = staleLeads.length + urgentMilestones.length + dueContacts.length;
+  const total =
+    staleLeads.length + urgentMilestones.length + dueContacts.length + upcomingShowings.length;
   const subject = `${total} thing${total === 1 ? "" : "s"} need you today`;
 
   const leadLines = staleLeads.map((lead) => `${lead.name} — ${lead.reason}`);
   const milestoneLines = urgentMilestones.map(
     (milestone) => `${milestone.label} — ${milestone.transaction.propertyAddress} (${milestoneDueLabel(milestone.dueDate)})`
   );
+  const showingLines = upcomingShowings.map(
+    (showing) => `${showing.address} — ${showing.buyer.name} (${showingWhenLabel(showing.scheduledAt)})`
+  );
   const contactLines = dueContacts.map((contact) => `${contact.name} — ${contact.reason}`);
 
-  const text = buildDigestText({
-    agentName,
-    leadLines,
-    milestoneLines,
-    contactLines,
-    todayUrl,
-    sphereUrl,
-  });
+  const sections: DigestSectionData[] = [
+    { title: "Leads waiting on a follow-up", lines: leadLines, href: todayUrl },
+    { title: "Deadlines coming up", lines: milestoneLines, href: todayUrl },
+    { title: "Showings coming up", lines: showingLines, href: buyersUrl },
+    { title: "Sphere contacts due for a check-in", lines: contactLines, href: sphereUrl },
+  ];
 
-  const html = buildDigestHtml({
-    agentName,
-    leadLines,
-    milestoneLines,
-    contactLines,
-    todayUrl,
-    sphereUrl,
-  });
-
-  return { subject, text, html };
+  return {
+    subject,
+    text: buildDigestText(agentName, sections),
+    html: buildDigestHtml(agentName, sections),
+  };
 }
 
-type DigestSections = {
-  agentName: string;
-  leadLines: string[];
-  milestoneLines: string[];
-  contactLines: string[];
-  todayUrl: string | null;
-  sphereUrl: string | null;
-};
+type DigestSectionData = { title: string; lines: string[]; href: string | null };
 
-function buildDigestText(s: DigestSections): string {
-  const parts: string[] = [`Good morning ${firstName(s.agentName)},`, ""];
+function buildDigestText(agentName: string, sections: DigestSectionData[]): string {
+  const parts: string[] = [`Good morning ${firstName(agentName)},`, ""];
 
-  if (s.leadLines.length > 0) {
-    parts.push(`Leads waiting on a follow-up (${s.leadLines.length}):`);
-    parts.push(...s.leadLines.map((line) => `  - ${line}`));
+  for (const section of sections) {
+    if (section.lines.length === 0) continue;
+    parts.push(`${section.title} (${section.lines.length}):`);
+    parts.push(...section.lines.map((line) => `  - ${line}`));
+    if (section.href) parts.push(`  ${section.href}`);
     parts.push("");
-  }
-  if (s.milestoneLines.length > 0) {
-    parts.push(`Deadlines coming up (${s.milestoneLines.length}):`);
-    parts.push(...s.milestoneLines.map((line) => `  - ${line}`));
-    parts.push("");
-  }
-  if (s.contactLines.length > 0) {
-    parts.push(`Sphere contacts due for a check-in (${s.contactLines.length}):`);
-    parts.push(...s.contactLines.map((line) => `  - ${line}`));
-    parts.push("");
-  }
-
-  if (s.todayUrl) {
-    parts.push(`Open your day: ${s.todayUrl}`);
-  }
-  if (s.sphereUrl && s.contactLines.length > 0) {
-    parts.push(`Your sphere: ${s.sphereUrl}`);
   }
 
   return parts.join("\n");
 }
 
-function buildDigestHtml(s: DigestSections): string {
-  const section = (title: string, lines: string[], href: string | null) => {
+function buildDigestHtml(agentName: string, sections: DigestSectionData[]): string {
+  const renderSection = ({ title, lines, href }: DigestSectionData) => {
     if (lines.length === 0) return "";
     const items = lines
       .map((line) => `<li style="margin: 0 0 6px; font-size: 14px; color: #1c1917;">${escapeHtml(line)}</li>`)
@@ -278,11 +263,9 @@ function buildDigestHtml(s: DigestSections): string {
   return `<!doctype html>
 <html>
   <body style="font-family: -apple-system, system-ui, sans-serif; max-width: 34rem; margin: 0 auto; padding: 24px; color: #1c1917;">
-    <p style="font-size: 15px;">Good morning ${escapeHtml(firstName(s.agentName))},</p>
+    <p style="font-size: 15px;">Good morning ${escapeHtml(firstName(agentName))},</p>
     <p style="font-size: 14px; color: #57534e;">Here's what needs you today.</p>
-    ${section("Leads waiting on a follow-up", s.leadLines, s.todayUrl)}
-    ${section("Deadlines coming up", s.milestoneLines, s.todayUrl)}
-    ${section("Sphere contacts due for a check-in", s.contactLines, s.sphereUrl)}
+    ${sections.map(renderSection).join("")}
     <p style="font-size: 12px; color: #a8a29e; margin-top: 32px;">You're getting this because the daily digest is on. Turn it off from Settings in your dashboard.</p>
   </body>
 </html>`;
@@ -298,6 +281,17 @@ function milestoneDueLabel(dueDate: Date): string {
   if (diffDays === 0) return "due today";
   if (diffDays === 1) return "due tomorrow";
   return `due in ${diffDays}d`;
+}
+
+function showingWhenLabel(scheduledAt: Date): string {
+  if (scheduledAt.getTime() < Date.now()) return "awaiting feedback";
+  return scheduledAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function firstName(name: string): string {

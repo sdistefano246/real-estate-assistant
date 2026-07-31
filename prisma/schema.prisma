@@ -34,6 +34,7 @@ model Agent {
   callLogs     CallLog[]
   transactions Transaction[]
   contacts     Contact[]
+  buyers       Buyer[]
 }
 
 model Listing {
@@ -87,6 +88,7 @@ model Lead {
   textLogs     TextLog[]
   interactions Interaction[]
   transactions Transaction[]
+  buyers       Buyer[]
 
   @@index([agentId])
   @@index([agentId, status])
@@ -275,4 +277,84 @@ model CallLog {
   createdAt    DateTime @default(now())
 
   @@index([agentId])
+}
+
+// A buyer the agent is actively representing on the buy side (Phase 5 buyer
+// workflow). Deliberately its own model, not a Lead.status stage or a
+// Transaction: a Lead is an unqualified prospect and a Transaction is a deal
+// already under contract, whereas a buyer is a client mid-search — criteria to
+// match against, homes to tour, showings to schedule. leadId is optional since
+// not every buyer traces back to a tracked lead (a referral, a repeat client).
+// All search-criteria fields are optional: a buyer often only knows a few.
+model Buyer {
+  id                String   @id @default(cuid())
+  agentId           String
+  agent             Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  name              String
+  email             String?
+  phone             String?
+  status            String   @default("active") // "active" | "under_contract" | "closed" | "inactive"
+  locations         String? // freeform, comma-separated towns/neighbourhoods
+  minPrice          Int?
+  maxPrice          Int?
+  minBeds           Int?
+  minBaths          Float?
+  propertyType      String? // "single_family" | "condo" | "townhouse" | "multi_family" | "any"
+  mustHaves         String?
+  preApproved       Boolean  @default(false)
+  preApprovalAmount Int?
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  properties BuyerProperty[]
+  showings   Showing[]
+
+  @@index([agentId])
+  @@index([leadId])
+}
+
+// A specific home under consideration for a buyer — a candidate the agent
+// pulled from the MLS or the buyer flagged. Deliberately just enough to track
+// and match (price + beds/baths + type) plus a status as it moves toward an
+// offer. Not a mirror of the MLS.
+model BuyerProperty {
+  id           String   @id @default(cuid())
+  buyerId      String
+  buyer        Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  address      String
+  price        Int?
+  beds         Int?
+  baths        Float?
+  propertyType String?
+  listingUrl   String?
+  status       String   @default("considering") // "considering" | "showing_scheduled" | "toured" | "rejected" | "offer_made"
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  showings Showing[]
+
+  @@index([buyerId])
+}
+
+// A scheduled property tour for a buyer. Ties to a BuyerProperty when the home
+// is already tracked, but keeps its own address so a one-off showing doesn't
+// require creating a property record first. Upcoming, not-yet-completed showings
+// surface in the "needs attention" set (Overview + Today), mirroring how urgent
+// milestones do for transactions.
+model Showing {
+  id              String         @id @default(cuid())
+  buyerId         String
+  buyer           Buyer          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerPropertyId String?
+  buyerProperty   BuyerProperty? @relation(fields: [buyerPropertyId], references: [id], onDelete: SetNull)
+  address         String
+  scheduledAt     DateTime
+  completed       Boolean        @default(false)
+  feedback        String?
+  createdAt       DateTime       @default(now())
+
+  @@index([buyerId])
+  @@index([buyerPropertyId])
 }
