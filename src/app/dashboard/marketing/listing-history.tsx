@@ -101,7 +101,7 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
             )}
 
             {posts.map((post, i) => {
-              if (post.platform === "instagram" || post.platform === "facebook") {
+              if (post.platform === "instagram" || post.platform === "facebook" || post.platform === "tiktok") {
                 const photo = listing.photos[0];
                 return (
                   <PlatformPost
@@ -133,11 +133,15 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
   );
 }
 
-// Shared card for platforms with a single caption field (Instagram, Facebook) —
-// pairs the caption with the listing's photo (with its own download button,
-// since neither platform reliably accepts a pasted image — see
+// Shared card for platforms with a single caption field (Instagram, Facebook,
+// TikTok) — pairs the caption with the listing's photo (with its own download
+// button, since none of these reliably accept a pasted image — see
 // src/lib/download-photo.ts) and copies caption + hashtags as one paste-ready
-// text block, since neither platform has separate caption/hashtag inputs.
+// text block, since none of these platforms have separate caption/hashtag
+// inputs. TikTok's "caption" is a multi-line on-camera script rather than a
+// short blurb, but it renders fine here as-is via whitespace-pre-wrap.
+const PLATFORM_LABELS: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+
 function PlatformPost({
   post,
   photo,
@@ -152,7 +156,8 @@ function PlatformPost({
   const [copied, setCopied] = useState(false);
   const readyToPost =
     post.caption + (post.hashtags.length > 0 ? `\n\n${post.hashtags.map((h) => `#${h}`).join(" ")}` : "");
-  const platformLabel = post.platform.charAt(0).toUpperCase() + post.platform.slice(1);
+  const platformLabel =
+    PLATFORM_LABELS[post.platform] ?? post.platform.charAt(0).toUpperCase() + post.platform.slice(1);
 
   return (
     <div className="mt-3 flex gap-3 rounded-lg border border-stone-200 bg-white p-3">
