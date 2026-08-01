@@ -24,6 +24,7 @@ export const getCurrentAgent = cache(async () => {
       phone: true,
       dailyDigestEnabled: true,
       autoNurtureEnabled: true,
+      autoPostInstagramEnabled: true,
       calendarToken: true,
     },
   });

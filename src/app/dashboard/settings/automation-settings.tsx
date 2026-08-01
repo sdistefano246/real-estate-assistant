@@ -1,19 +1,27 @@
 "use client";
 
 import { useTransition } from "react";
-import { setDailyDigestEnabled, setAutoNurtureEnabled } from "@/app/actions/automation";
+import {
+  setDailyDigestEnabled,
+  setAutoNurtureEnabled,
+  setAutoPostInstagramEnabled,
+} from "@/app/actions/automation";
 
 export function AutomationSettings({
   dailyDigestEnabled,
   autoNurtureEnabled,
+  autoPostInstagramEnabled,
   resendConfigured,
   anthropicConfigured,
+  instagramConfigured,
   cronConfigured,
 }: {
   dailyDigestEnabled: boolean;
   autoNurtureEnabled: boolean;
+  autoPostInstagramEnabled: boolean;
   resendConfigured: boolean;
   anthropicConfigured: boolean;
+  instagramConfigured: boolean;
   cronConfigured: boolean;
 }) {
   return (
@@ -46,6 +54,19 @@ export function AutomationSettings({
         warning={
           autoNurtureEnabled && (!resendConfigured || !anthropicConfigured)
             ? "Auto-send needs ANTHROPIC_API_KEY (to draft) and RESEND_API_KEY + RESEND_FROM_EMAIL (to send). Until both are set, nothing goes out — draft-and-review from the Sphere page still works."
+            : null
+        }
+        danger
+      />
+
+      <Toggle
+        title="Auto-post new listings to Instagram"
+        description="The moment a new listing is generated on the Marketing page, publish it straight to Instagram — the generated Instagram caption and hashtags, with the first uploaded photo. Only posts if the listing actually has a photo and an Instagram post; no review first."
+        enabled={autoPostInstagramEnabled}
+        onToggle={(next) => setAutoPostInstagramEnabled(next)}
+        warning={
+          autoPostInstagramEnabled && !instagramConfigured
+            ? "Add INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_BUSINESS_ACCOUNT_ID to actually post — until then, listings still generate normally, they just won't auto-post. See SETUP.md."
             : null
         }
         danger

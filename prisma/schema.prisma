@@ -27,6 +27,10 @@ model Agent {
   // autoAckEnabled and defaults OFF until the agent opts in.
   dailyDigestEnabled Boolean @default(true)
   autoNurtureEnabled Boolean @default(false)
+  // Auto-posts a newly generated listing straight to Instagram — real
+  // unsupervised publishing to a public platform, higher stakes than any
+  // other auto-send in this app, so off by default like autoNurtureEnabled.
+  autoPostInstagramEnabled Boolean @default(false)
   // Opaque secret in the agent's private iCal feed URL. Calendar apps fetch a
   // subscription URL with no auth header, so the unguessable token IS the
   // credential; regenerating it revokes any previously shared link. Null until
@@ -55,6 +59,14 @@ model Listing {
   generatedDescription String?
   socialPosts         String? // JSON array of { platform, caption, hashtags } — see src/lib/prompts/listing.ts
   createdAt           DateTime @default(now())
+
+  // Outcome of an auto-post attempt to Instagram (see src/lib/instagram.server.ts).
+  // instagramPostId is the published media's ID when it succeeds; instagramPostError
+  // holds the reason when it doesn't (missing photo, no IG post, API error, etc.).
+  // Both null means auto-post was off or never attempted for this listing.
+  instagramPostId    String?
+  instagramPostedAt  DateTime?
+  instagramPostError String?
 
   photos ListingPhoto[]
 

@@ -64,6 +64,39 @@ server), so large photos don't hit Vercel's request size limits.
 3. Without this, the Marketing page shows an "add a Blob store" banner instead of the upload
    field — description/social-post generation still works fine without it.
 
+### Marketing — auto-post new listings to Instagram (Meta Graph API)
+
+Opt-in, off by default, toggled from `/dashboard/settings` → **Automation**. When on, the moment a
+new listing is generated with a photo, it auto-publishes straight to Instagram (no review step) —
+this is more setup than Twilio/Resend since Instagram has no simple pasteable API key:
+
+1. Convert the target Instagram account to a **Business** or **Creator** account (Instagram app →
+   Settings → Account type) if it isn't already — personal accounts can't use the publishing API.
+2. Link it to a **Facebook Page** (Instagram Settings → linked accounts, or via Meta Business
+   Suite). A Page has to exist even if it's never used for anything else.
+3. Create a **Meta Developer App** at https://developers.facebook.com (type: Business), and add the
+   **Instagram Graph API** product to it.
+4. Get a long-lived access token with `instagram_basic` + `instagram_content_publish` permissions.
+   The quickest path for a single account: generate a short-lived token in the Graph API Explorer,
+   then exchange it for a long-lived one (`GET /oauth/access_token?grant_type=fb_exchange_token&...`)
+   — a long-lived token lasts ~60 days and needs refreshing before it expires, there's no
+   auto-refresh built into this app.
+5. Get the Instagram **Business Account ID**: `GET /me/accounts` to find the linked Page, then
+   `GET /{page-id}?fields=instagram_business_account` to get its ID.
+6. Add to `.env` (and Vercel's project env for production):
+   ```
+   INSTAGRAM_ACCESS_TOKEN="..."
+   INSTAGRAM_BUSINESS_ACCOUNT_ID="..."
+   ```
+7. In Meta's **Development Mode**, the app can only post to Instagram accounts explicitly added as
+   testers on the app (Roles → Instagram Testers) — fine for a single agent's own account. Posting
+   to accounts outside that list needs Meta App Review for `instagram_content_publish`.
+
+Requires a photo on the listing (Instagram's API needs an image) and a generated Instagram post —
+without either, the listing still generates normally, it just doesn't attempt to post. Any failure
+(expired token, no tester access, a real API error) gets recorded on the listing and shown on the
+Marketing page rather than failing the whole generation.
+
 ### Calls (missed-call auto-text) — Twilio
 
 This one has more setup because it involves a real phone number and SMS compliance:

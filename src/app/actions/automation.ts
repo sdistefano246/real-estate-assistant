@@ -15,3 +15,9 @@ export async function setAutoNurtureEnabled(enabled: boolean) {
   await prisma.agent.update({ where: { id: agentId }, data: { autoNurtureEnabled: enabled } });
   revalidatePath("/dashboard/settings");
 }
+
+export async function setAutoPostInstagramEnabled(enabled: boolean) {
+  const { agentId } = await verifySession();
+  await prisma.agent.update({ where: { id: agentId }, data: { autoPostInstagramEnabled: enabled } });
+  revalidatePath("/dashboard/settings");
+}

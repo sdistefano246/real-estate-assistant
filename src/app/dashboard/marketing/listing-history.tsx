@@ -15,6 +15,9 @@ type ListingItem = {
   socialPosts: string | null;
   createdAt: Date;
   photos: PhotoItem[];
+  instagramPostId: string | null;
+  instagramPostedAt: Date | null;
+  instagramPostError: string | null;
 };
 
 function parseSocialPosts(raw: string | null): SocialPost[] {
@@ -62,6 +65,16 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
               <div>
                 <h3 className="text-sm font-semibold text-teal-900">{listing.address}</h3>
                 <p className="text-xs text-stone-500">${listing.price.toLocaleString()}</p>
+                {listing.instagramPostedAt && (
+                  <p className="mt-1 text-xs font-medium text-emerald-700">
+                    ✓ Auto-posted to Instagram {listing.instagramPostedAt.toLocaleString()}
+                  </p>
+                )}
+                {!listing.instagramPostedAt && listing.instagramPostError && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Auto-post to Instagram didn&apos;t go through: {listing.instagramPostError}
+                  </p>
+                )}
               </div>
               <button
                 disabled={isPending}

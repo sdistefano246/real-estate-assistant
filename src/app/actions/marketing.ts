@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db.server";
 import { getAnthropicClient, isAnthropicConfigured, CLAUDE_MODEL } from "@/lib/anthropic.server";
 import { LISTING_SYSTEM_PROMPT, buildListingUserPrompt } from "@/lib/prompts/listing";
 import { extractJson } from "@/lib/extract-json";
+import { isInstagramConfigured, publishToInstagram } from "@/lib/instagram.server";
 
 export type GenerateListingState = { error?: string } | undefined;
 
@@ -53,7 +54,7 @@ export async function generateListing(
 
   const photoUrls = formData.getAll("photoUrls").map(String).filter(Boolean);
 
-  await prisma.listing.create({
+  const listing = await prisma.listing.create({
     data: {
       agentId,
       address,
@@ -70,8 +71,50 @@ export async function generateListing(
     },
   });
 
+  await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
+
   revalidatePath("/dashboard/marketing");
   return undefined;
+}
+
+// Best-effort — a failure here (not configured, no photo, no IG post, a real
+// API error) never fails listing generation itself. The listing is already
+// saved by the time this runs; the outcome just gets recorded on it.
+async function maybeAutoPostToInstagram(
+  agentId: string,
+  listingId: string,
+  socialPosts: { platform: string; caption: string; hashtags: string[] }[],
+  firstPhotoUrl: string | undefined
+) {
+  const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostInstagramEnabled: true } });
+  if (!agent?.autoPostInstagramEnabled || !isInstagramConfigured()) return;
+
+  const igPost = socialPosts.find((p) => p.platform === "instagram");
+  if (!igPost) return;
+
+  if (!firstPhotoUrl) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { instagramPostError: "No photo uploaded — Instagram requires an image." },
+    });
+    return;
+  }
+
+  const caption =
+    igPost.caption + (igPost.hashtags.length > 0 ? `\n\n${igPost.hashtags.map((h) => `#${h}`).join(" ")}` : "");
+
+  try {
+    const mediaId = await publishToInstagram({ imageUrl: firstPhotoUrl, caption });
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { instagramPostId: mediaId, instagramPostedAt: new Date(), instagramPostError: null },
+    });
+  } catch (error) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { instagramPostError: error instanceof Error ? error.message : "Auto-post failed." },
+    });
+  }
 }
 
 export async function deleteListing(listingId: string) {
