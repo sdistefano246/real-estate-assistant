@@ -23,8 +23,13 @@ type CalEvent = {
 
 export async function buildAgentCalendar(agentId: string): Promise<string> {
   const [milestones, closingTransactions, showings] = await Promise.all([
+    // Excludes the "Closing" milestone specifically — the closingTransactions
+    // query below already emits one closing event per transaction, straight
+    // from Transaction.closingDate (the authoritative field, always present
+    // for an active deal). Including both produced two identical "Closing:
+    // [address]" entries on the calendar for every transaction.
     prisma.milestone.findMany({
-      where: { completed: false, transaction: { agentId, status: "active" } },
+      where: { completed: false, label: { not: "Closing" }, transaction: { agentId, status: "active" } },
       include: { transaction: { select: { propertyAddress: true } } },
     }),
     prisma.transaction.findMany({
