@@ -106,7 +106,7 @@ export function TransactionCard({
   }
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-5">
+    <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-5">
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-sm font-semibold text-teal-900">{transaction.propertyAddress}</h3>

@@ -14,7 +14,7 @@ export function ChangePasswordForm() {
   }, [pending, state]);
 
   return (
-    <form ref={formRef} action={formAction} className="flex max-w-sm flex-col gap-4 rounded-lg border border-stone-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="flex max-w-sm flex-col gap-4 rounded-lg border border-stone-200 bg-white shadow-sm p-6">
       <div>
         <label htmlFor="currentPassword" className="block text-sm font-medium text-stone-700">
           Current password

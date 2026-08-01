@@ -14,7 +14,7 @@ export async function WebsiteFormSetup() {
   const inboundUrl = await getInboundUrl();
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-6">
+    <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-6">
       <h2 className="text-sm font-semibold text-teal-900">Website inbound form</h2>
       <p className="mt-1 text-sm text-stone-500">
         Paste this form on your own site (or link to it from a bio link) to capture leads

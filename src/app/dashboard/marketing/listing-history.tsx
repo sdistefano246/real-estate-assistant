@@ -57,7 +57,7 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
         const posts = parseSocialPosts(listing.socialPosts);
 
         return (
-          <div key={listing.id} className="rounded-lg border border-stone-200 bg-white p-5">
+          <div key={listing.id} className="rounded-lg border border-stone-200 bg-white shadow-sm p-5">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-teal-900">{listing.address}</h3>
@@ -160,7 +160,7 @@ function PlatformPost({
     PLATFORM_LABELS[post.platform] ?? post.platform.charAt(0).toUpperCase() + post.platform.slice(1);
 
   return (
-    <div className="mt-3 flex gap-3 rounded-lg border border-stone-200 bg-white p-3">
+    <div className="mt-3 flex gap-3 rounded-lg border border-stone-200 bg-white shadow-sm p-3">
       {photo && (
         <div className="relative flex-shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -15,7 +15,7 @@ export function AddContactForm() {
   }, [pending, state]);
 
   return (
-    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white shadow-sm p-6">
       <div>
         <label className="block text-sm font-medium text-stone-700">Name</label>
         <input name="name" required className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm" />

@@ -75,7 +75,7 @@ export function ContactCard({
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-5">
+    <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-5">
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">

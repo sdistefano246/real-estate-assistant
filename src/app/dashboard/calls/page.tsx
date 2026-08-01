@@ -18,7 +18,7 @@ export default async function CallsPage() {
         <p className="text-sm text-stone-500">Missed-call auto-text log and setup.</p>
       </div>
 
-      <div className="rounded-lg border border-stone-200 bg-white p-6">
+      <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-6">
         <h2 className="text-sm font-semibold text-teal-900">Setup</h2>
         {!configured && (
           <p className="mt-1 text-sm text-amber-700">
@@ -53,7 +53,7 @@ export default async function CallsPage() {
         {calls.length === 0 ? (
           <p className="text-sm text-stone-400">No calls logged yet.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
+          <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
             <table className="w-full text-sm">
               <thead className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-500">
                 <tr>

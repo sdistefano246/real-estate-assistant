@@ -30,7 +30,7 @@ export function AddBuyerForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white p-6"
+      className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white shadow-sm p-6"
     >
       <div className="col-span-2">
         <h2 className="text-sm font-semibold text-teal-900">New buyer</h2>

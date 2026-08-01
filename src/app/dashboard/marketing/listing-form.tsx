@@ -29,7 +29,7 @@ export function ListingForm({ configured, blobConfigured }: { configured: boolea
   }
 
   return (
-    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white p-6">
+    <form ref={formRef} action={formAction} className="grid grid-cols-2 gap-4 rounded-lg border border-stone-200 bg-white shadow-sm p-6">
       <div className="col-span-2">
         <label className="block text-sm font-medium text-stone-700">Address</label>
         <input

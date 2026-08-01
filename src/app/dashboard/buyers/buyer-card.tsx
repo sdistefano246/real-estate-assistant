@@ -127,7 +127,7 @@ export function BuyerCard({ buyer, matchedListings }: { buyer: BuyerItem; matche
   const pastShowings = buyer.showings.filter((s) => s.completed);
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-5">
+    <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

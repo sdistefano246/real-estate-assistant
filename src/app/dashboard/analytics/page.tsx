@@ -174,7 +174,7 @@ export default async function AnalyticsPage() {
 
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
+    <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold text-teal-900">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
