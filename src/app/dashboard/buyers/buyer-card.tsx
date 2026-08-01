@@ -20,6 +20,7 @@ import {
 } from "@/lib/buyer-property-status";
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, propertyTypeLabel } from "@/lib/property-type";
 import { evaluateMatch, hasAnyCriteria, type BuyerCriteria } from "@/lib/buyer-match";
+import { HomeIcon, CalendarIcon } from "../icons";
 
 export type PropertyItem = {
   id: string;
@@ -68,6 +69,24 @@ export type BuyerItem = {
 export type MatchedListing = { id: string; address: string; price: number };
 
 const inputCls = "mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm";
+
+// Same fixed categorical order used for Overview's stat cards — a buyer's
+// avatar color is stable (hashed from their id) so it stays consistent
+// across renders, and distinct buyers read apart at a glance in a long list.
+const AVATAR_COLORS = [
+  "bg-sky-100 text-sky-700",
+  "bg-violet-100 text-violet-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-fuchsia-100 text-fuchsia-700",
+  "bg-teal-100 text-teal-800",
+  "bg-indigo-100 text-indigo-700",
+];
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
 
 function usd(n: number): string {
   return `$${n.toLocaleString()}`;
@@ -129,18 +148,25 @@ export function BuyerCard({ buyer, matchedListings }: { buyer: BuyerItem; matche
   return (
     <div className="rounded-lg border border-stone-200 bg-white shadow-sm p-5">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-teal-900">{buyer.name}</h3>
-            {buyer.preApproved && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
-                Pre-approved{buyer.preApprovalAmount ? ` · ${usd(buyer.preApprovalAmount)}` : ""}
-              </span>
-            )}
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarColor(buyer.id)}`}
+          >
+            {buyer.name.charAt(0).toUpperCase()}
           </div>
-          <p className="text-xs text-stone-500">
-            {[buyer.email, buyer.phone].filter(Boolean).join(" · ") || "No contact info"}
-          </p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-teal-900">{buyer.name}</h3>
+              {buyer.preApproved && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
+                  Pre-approved{buyer.preApprovalAmount ? ` · ${usd(buyer.preApprovalAmount)}` : ""}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-stone-500">
+              {[buyer.email, buyer.phone].filter(Boolean).join(" · ") || "No contact info"}
+            </p>
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -205,7 +231,8 @@ export function BuyerCard({ buyer, matchedListings }: { buyer: BuyerItem; matche
       {/* Candidate properties */}
       <div className="mt-4 border-t border-stone-100 pt-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            <HomeIcon className="h-3.5 w-3.5 text-stone-400" />
             Properties ({buyer.properties.length})
           </h4>
           <button
@@ -247,7 +274,10 @@ export function BuyerCard({ buyer, matchedListings }: { buyer: BuyerItem; matche
       {/* Showings */}
       <div className="mt-4 border-t border-stone-100 pt-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">Showings</h4>
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            <CalendarIcon className="h-3.5 w-3.5 text-stone-400" />
+            Showings
+          </h4>
           <button
             onClick={() => setScheduling((v) => !v)}
             className="text-xs font-medium text-teal-800 hover:text-teal-900"
