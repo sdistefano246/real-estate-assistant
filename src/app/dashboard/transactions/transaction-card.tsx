@@ -6,6 +6,7 @@ import {
   addTransactionContact,
   updateTransactionStatus,
   setTransactionFinancials,
+  updateClosingDate,
 } from "@/app/actions/transactions";
 import { addContact } from "@/app/actions/contacts";
 import { computeGci, usedAssumedRate } from "@/lib/commission";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/contact-relationship";
 import { MilestoneRow } from "./milestone-row";
 import { ContactBlock } from "./contact-block";
+import { formatDateOnly } from "@/lib/relative-time";
 
 function formatUsd(n: number): string {
   return `$${n.toLocaleString()}`;
@@ -77,6 +79,19 @@ export function TransactionCard({
   const [priceInput, setPriceInput] = useState(transaction.salePrice != null ? String(transaction.salePrice) : "");
   const [rateInput, setRateInput] = useState(transaction.commissionRate != null ? String(transaction.commissionRate) : "");
 
+  const [showEditClosing, setShowEditClosing] = useState(false);
+  const [closingDateInput, setClosingDateInput] = useState(
+    transaction.closingDate ? transaction.closingDate.toISOString().slice(0, 10) : ""
+  );
+
+  function submitClosingDate() {
+    if (!closingDateInput) return;
+    startTransition(async () => {
+      await updateClosingDate(transaction.id, closingDateInput);
+      setShowEditClosing(false);
+    });
+  }
+
   const gci = computeGci(transaction.salePrice, transaction.commissionRate);
   const gciAssumed = usedAssumedRate(transaction.salePrice, transaction.commissionRate);
 
@@ -112,9 +127,47 @@ export function TransactionCard({
           <h3 className="text-sm font-semibold text-teal-900">{transaction.propertyAddress}</h3>
           <p className="text-xs text-stone-500">
             {transaction.side === "buyer" ? "Buyer side" : "Seller side"}
-            {transaction.contractDate && ` · Contract ${transaction.contractDate.toLocaleDateString()}`}
-            {transaction.closingDate && ` · Closing ${transaction.closingDate.toLocaleDateString()}`}
+            {transaction.contractDate && ` · Contract ${formatDateOnly(transaction.contractDate)}`}
+            {!showEditClosing && transaction.closingDate && (
+              <>
+                {" · Closing "}
+                {formatDateOnly(transaction.closingDate)}{" "}
+                <button
+                  onClick={() => setShowEditClosing(true)}
+                  className="text-stone-400 underline hover:text-stone-700"
+                >
+                  Edit
+                </button>
+              </>
+            )}
           </p>
+          {showEditClosing && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                type="date"
+                value={closingDateInput}
+                onChange={(e) => setClosingDateInput(e.target.value)}
+                className="rounded-md border border-stone-300 px-2 py-1 text-xs"
+              />
+              <button
+                disabled={isPending}
+                onClick={submitClosingDate}
+                className="rounded-md bg-teal-900 px-2 py-1 text-xs font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditClosing(false);
+                  setClosingDateInput(transaction.closingDate ? transaction.closingDate.toISOString().slice(0, 10) : "");
+                }}
+                className="text-xs text-stone-400 hover:text-stone-700"
+              >
+                Cancel
+              </button>
+              <span className="text-[11px] text-stone-400">Also updates the &quot;Closing&quot; milestone below.</span>
+            </div>
+          )}
         </div>
         <select
           value={transaction.status}

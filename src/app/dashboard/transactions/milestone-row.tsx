@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { toggleMilestoneComplete, deleteMilestone } from "@/app/actions/transactions";
+import { formatDateOnly } from "@/lib/relative-time";
 
 type MilestoneItem = { id: string; label: string; dueDate: Date; completed: boolean };
 
@@ -26,7 +27,7 @@ export function MilestoneRow({
         {milestone.label}
         {propertyAddress && <span className="text-stone-400"> — {propertyAddress}</span>}
       </span>
-      <span className="shrink-0 text-stone-400">Due {milestone.dueDate.toLocaleDateString()}</span>
+      <span className="shrink-0 text-stone-400">Due {formatDateOnly(milestone.dueDate)}</span>
       <button
         disabled={isPending}
         onClick={() => startTransition(() => deleteMilestone(milestone.id))}

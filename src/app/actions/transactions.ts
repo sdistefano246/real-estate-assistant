@@ -224,6 +224,31 @@ export async function sendChase(chaseLogId: string) {
   revalidateTransactionPages();
 }
 
+// Keeps Transaction.closingDate and the auto-created "Closing" milestone's
+// dueDate in sync — before this, editing one silently left the other stale
+// (the transaction card / calendar feed vs. the deadline list).
+export async function updateClosingDate(transactionId: string, closingDate: string) {
+  const { agentId } = await verifySession();
+
+  const parsedDate = new Date(closingDate);
+  if (!closingDate || isNaN(parsedDate.getTime())) {
+    throw new Error("Invalid closing date");
+  }
+
+  await prisma.transaction.findFirstOrThrow({ where: { id: transactionId, agentId } });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.update({ where: { id: transactionId }, data: { closingDate: parsedDate } });
+    await tx.milestone.updateMany({
+      where: { transactionId, label: "Closing" },
+      data: { dueDate: parsedDate },
+    });
+  });
+
+  revalidateTransactionPages();
+  revalidatePath("/dashboard/analytics");
+}
+
 export async function updateTransactionStatus(transactionId: string, status: string) {
   const { agentId } = await verifySession();
 
