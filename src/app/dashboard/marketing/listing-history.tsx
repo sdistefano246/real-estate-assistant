@@ -100,20 +100,68 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
               <CopyBlock label="Description" text={listing.generatedDescription} />
             )}
 
-            {posts.map((post, i) => (
-              <div key={i} className="mt-3 rounded-md bg-stone-50 p-3">
-                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-teal-800">
-                  {post.platform}
-                </span>
-                <CopyBlock label="Caption" text={post.caption} />
-                {post.hashtags.length > 0 && (
-                  <CopyBlock label="Hashtags" text={post.hashtags.map((h) => `#${h}`).join(" ")} />
-                )}
-              </div>
-            ))}
+            {posts.map((post, i) => {
+              if (post.platform === "instagram") {
+                return <InstagramPost key={i} post={post} photo={listing.photos[0]} />;
+              }
+
+              return (
+                <div key={i} className="mt-3 rounded-md bg-stone-50 p-3">
+                  <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-teal-800">
+                    {post.platform}
+                  </span>
+                  <CopyBlock label="Caption" text={post.caption} />
+                  {post.hashtags.length > 0 && (
+                    <CopyBlock label="Hashtags" text={post.hashtags.map((h) => `#${h}`).join(" ")} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function InstagramPost({ post, photo }: { post: SocialPost; photo?: PhotoItem }) {
+  const [copied, setCopied] = useState(false);
+  // Instagram has one caption field, not separate caption/hashtag inputs —
+  // copy both as one paste-ready block instead of making two copies.
+  const readyToPost =
+    post.caption + (post.hashtags.length > 0 ? `\n\n${post.hashtags.map((h) => `#${h}`).join(" ")}` : "");
+
+  return (
+    <div className="mt-3 flex gap-3 rounded-lg border border-stone-200 bg-white p-3">
+      {photo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo.url}
+          alt=""
+          className="h-20 w-20 flex-shrink-0 rounded-md border border-stone-200 object-cover"
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-teal-800">
+            instagram
+          </span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(readyToPost);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="whitespace-nowrap text-xs font-medium text-teal-800 hover:text-teal-900"
+          >
+            {copied ? "Copied ✓" : "Copy for Instagram"}
+          </button>
+        </div>
+        <p className="mt-2 whitespace-pre-wrap text-sm text-stone-700">{post.caption}</p>
+        {post.hashtags.length > 0 && (
+          <p className="mt-1.5 text-xs text-stone-400">{post.hashtags.map((h) => `#${h}`).join(" ")}</p>
+        )}
+      </div>
     </div>
   );
 }
