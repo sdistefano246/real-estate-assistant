@@ -15,10 +15,8 @@ Output ONLY valid JSON matching this exact shape, no other text before or after:
 {
   "description": "the full MLS listing description, 150-250 words",
   "socialPosts": [
-    { "platform": "instagram", "caption": "just-listed announcement, 1-2 punchy sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
-    { "platform": "instagram", "caption": "feature-highlight post on one standout detail, 1-2 sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
-    { "platform": "facebook", "caption": "neighborhood/location post, factual amenities only, conversational, 2-4 sentences", "hashtags": [] },
-    { "platform": "facebook", "caption": "open house or call-to-action post, conversational, 2-3 sentences", "hashtags": [] },
+    { "platform": "instagram", "caption": "just-listed announcement highlighting the property's standout feature, 1-2 punchy sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
+    { "platform": "facebook", "caption": "conversational update covering the property/neighborhood factually, ending with a call-to-action to reach out or schedule a tour, 3-5 sentences", "hashtags": [] },
     { "platform": "tiktok", "caption": "short on-camera walkthrough script: hook line, then 2-3 short spoken-style beats on standout features, then a call-to-action line — written as separate short lines, not one paragraph", "hashtags": ["5-7 hashtags mixing broad real estate tags and niche/local tags, lowercase, no # symbol"] }
   ]
 }`;
