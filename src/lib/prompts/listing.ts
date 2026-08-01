@@ -9,6 +9,7 @@ Fair Housing Act compliance is non-negotiable. Never include language that refer
 Write social posts tailored to how each platform actually gets used, not one generic caption reused everywhere:
 - Instagram posts are short and visual-first, end with a hook, and rely on hashtags for reach.
 - Facebook posts are longer-form and conversational, read like an update to a local network, and use few or no hashtags — they don't drive reach there the way they do on Instagram.
+- TikTok is video-first: write the caption as a short on-camera script, not a static blurb — an opening hook line (first 2 seconds, stop-the-scroll), 2-3 short spoken-style walkthrough beats hitting standout features, then a call-to-action line. Casual, punchy, no long sentences. Hashtags mix a couple broad/high-traffic real estate tags with a couple niche/local ones.
 
 Output ONLY valid JSON matching this exact shape, no other text before or after:
 {
@@ -17,7 +18,8 @@ Output ONLY valid JSON matching this exact shape, no other text before or after:
     { "platform": "instagram", "caption": "just-listed announcement, 1-2 punchy sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
     { "platform": "instagram", "caption": "feature-highlight post on one standout detail, 1-2 sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
     { "platform": "facebook", "caption": "neighborhood/location post, factual amenities only, conversational, 2-4 sentences", "hashtags": [] },
-    { "platform": "facebook", "caption": "open house or call-to-action post, conversational, 2-3 sentences", "hashtags": [] }
+    { "platform": "facebook", "caption": "open house or call-to-action post, conversational, 2-3 sentences", "hashtags": [] },
+    { "platform": "tiktok", "caption": "short on-camera walkthrough script: hook line, then 2-3 short spoken-style beats on standout features, then a call-to-action line — written as separate short lines, not one paragraph", "hashtags": ["5-7 hashtags mixing broad real estate tags and niche/local tags, lowercase, no # symbol"] }
   ]
 }`;
 
