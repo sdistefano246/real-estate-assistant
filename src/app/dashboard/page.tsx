@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db.server";
 import { getStaleLeads } from "@/lib/stale-leads.server";
 import { getUrgentMilestones } from "@/lib/urgent-milestones.server";
 import { getContactsDueForTouch } from "@/lib/contacts-due.server";
+import { getUpcomingShowings } from "@/lib/upcoming-showings.server";
 
 export default async function DashboardOverviewPage() {
   const { agentId } = await verifySession();
@@ -14,6 +15,7 @@ export default async function DashboardOverviewPage() {
     callCount,
     transactionCount,
     contactCount,
+    buyerCount,
     recentListings,
     recentLeads,
     recentTransactions,
@@ -21,12 +23,14 @@ export default async function DashboardOverviewPage() {
     staleLeads,
     urgentMilestones,
     dueContacts,
+    upcomingShowings,
   ] = await Promise.all([
     prisma.listing.count({ where: { agentId } }),
     prisma.lead.count({ where: { agentId } }),
     prisma.callLog.count({ where: { agentId } }),
     prisma.transaction.count({ where: { agentId } }),
     prisma.contact.count({ where: { agentId } }),
+    prisma.buyer.count({ where: { agentId } }),
     prisma.listing.findMany({ where: { agentId }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.lead.findMany({ where: { agentId }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.transaction.findMany({ where: { agentId }, orderBy: { createdAt: "desc" }, take: 5 }),
@@ -34,10 +38,14 @@ export default async function DashboardOverviewPage() {
     getStaleLeads(agentId),
     getUrgentMilestones(agentId),
     getContactsDueForTouch(agentId),
+    getUpcomingShowings(agentId),
   ]);
 
   const nothingNeedsAttention =
-    staleLeads.length === 0 && urgentMilestones.length === 0 && dueContacts.length === 0;
+    staleLeads.length === 0 &&
+    urgentMilestones.length === 0 &&
+    dueContacts.length === 0 &&
+    upcomingShowings.length === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -49,7 +57,7 @@ export default async function DashboardOverviewPage() {
             deadlines are close, and your sphere is up to date.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <AttentionCard
               count={staleLeads.length}
               label={staleLeads.length === 1 ? "lead waiting on a follow-up" : "leads waiting on a follow-up"}
@@ -61,6 +69,11 @@ export default async function DashboardOverviewPage() {
               href="/dashboard/today"
             />
             <AttentionCard
+              count={upcomingShowings.length}
+              label={upcomingShowings.length === 1 ? "showing coming up" : "showings coming up"}
+              href="/dashboard/buyers"
+            />
+            <AttentionCard
               count={dueContacts.length}
               label={dueContacts.length === 1 ? "contact due for a check-in" : "contacts due for a check-in"}
               href="/dashboard/sphere"
@@ -69,8 +82,9 @@ export default async function DashboardOverviewPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Leads" value={leadCount} />
+        <StatCard label="Buyers" value={buyerCount} />
         <StatCard label="Transactions" value={transactionCount} />
         <StatCard label="Sphere contacts" value={contactCount} />
         <StatCard label="Listings" value={listingCount} />

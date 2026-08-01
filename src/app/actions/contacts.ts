@@ -4,10 +4,9 @@ import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/dal.server";
 import { prisma } from "@/lib/db.server";
 import { isContactRelationship } from "@/lib/contact-relationship";
-import { getAnthropicClient, isAnthropicConfigured, CLAUDE_MODEL } from "@/lib/anthropic.server";
+import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { getResendClient, isResendConfigured } from "@/lib/resend.server";
-import { CHECK_IN_SYSTEM_PROMPT, buildCheckInUserPrompt } from "@/lib/prompts/check-in";
-import { extractJson } from "@/lib/extract-json";
+import { generateCheckIn } from "@/lib/check-in.server";
 
 export type AddContactState = { error?: string } | undefined;
 
@@ -64,30 +63,7 @@ export async function draftCheckIn(contactId: string) {
     prisma.agent.findUniqueOrThrow({ where: { id: agentId } }),
   ]);
 
-  const client = getAnthropicClient();
-  const message = await client.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 600,
-    system: CHECK_IN_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: buildCheckInUserPrompt({
-          contactName: contact.name,
-          relationship: contact.relationship,
-          notes: contact.notes,
-          businessName: agent.businessName,
-        }),
-      },
-    ],
-  });
-
-  const textBlock = message.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Generation failed — no text returned");
-  }
-
-  const parsed = extractJson<{ subject: string; body: string }>(textBlock.text);
+  const parsed = await generateCheckIn(contact, agent);
 
   await prisma.checkInLog.create({
     data: { contactId: contact.id, subject: parsed.subject, body: parsed.body, status: "draft" },
