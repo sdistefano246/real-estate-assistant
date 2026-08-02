@@ -6,8 +6,8 @@ import { prisma } from "@/lib/db.server";
 import { getAnthropicClient, isAnthropicConfigured, CLAUDE_MODEL } from "@/lib/anthropic.server";
 import { LISTING_SYSTEM_PROMPT, buildListingUserPrompt } from "@/lib/prompts/listing";
 import { extractJson } from "@/lib/extract-json";
-import { isInstagramConfigured, publishToInstagram } from "@/lib/instagram.server";
-import { isFacebookConfigured, publishToFacebook } from "@/lib/facebook.server";
+import { isInstagramConfigured, publishToInstagram, publishCarouselToInstagram } from "@/lib/instagram.server";
+import { isFacebookConfigured, publishToFacebook, publishMultiPhotoToFacebook } from "@/lib/facebook.server";
 import {
   isTiktokConnected,
   ensureFreshAccessToken,
@@ -78,9 +78,9 @@ export async function generateListing(
     },
   });
 
-  await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
-  await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
-  await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
+  await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls);
+  await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls);
+  await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls);
 
   revalidatePath("/dashboard/marketing");
   return undefined;
@@ -93,7 +93,7 @@ async function maybeAutoPostToInstagram(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  firstPhotoUrl: string | undefined
+  photoUrls: string[]
 ) {
   const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostInstagramEnabled: true } });
   if (!agent?.autoPostInstagramEnabled || !isInstagramConfigured()) return;
@@ -101,7 +101,7 @@ async function maybeAutoPostToInstagram(
   const igPost = socialPosts.find((p) => p.platform === "instagram");
   if (!igPost) return;
 
-  if (!firstPhotoUrl) {
+  if (photoUrls.length === 0) {
     await prisma.listing.update({
       where: { id: listingId },
       data: { instagramPostError: "No photo uploaded — Instagram requires an image." },
@@ -112,8 +112,14 @@ async function maybeAutoPostToInstagram(
   const caption =
     igPost.caption + (igPost.hashtags.length > 0 ? `\n\n${igPost.hashtags.map((h) => `#${h}`).join(" ")}` : "");
 
+  // Instagram's carousel cap is 10 images per post.
+  const igPhotoUrls = photoUrls.slice(0, 10);
+
   try {
-    const mediaId = await publishToInstagram({ imageUrl: firstPhotoUrl, caption });
+    const mediaId =
+      igPhotoUrls.length === 1
+        ? await publishToInstagram({ imageUrl: igPhotoUrls[0], caption })
+        : await publishCarouselToInstagram({ imageUrls: igPhotoUrls, caption });
     await prisma.listing.update({
       where: { id: listingId },
       data: { instagramPostId: mediaId, instagramPostedAt: new Date(), instagramPostError: null },
@@ -132,7 +138,7 @@ async function maybeAutoPostToFacebook(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  firstPhotoUrl: string | undefined
+  photoUrls: string[]
 ) {
   const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostFacebookEnabled: true } });
   if (!agent?.autoPostFacebookEnabled || !isFacebookConfigured()) return;
@@ -140,7 +146,7 @@ async function maybeAutoPostToFacebook(
   const fbPost = socialPosts.find((p) => p.platform === "facebook");
   if (!fbPost) return;
 
-  if (!firstPhotoUrl) {
+  if (photoUrls.length === 0) {
     await prisma.listing.update({
       where: { id: listingId },
       data: { facebookPostError: "No photo uploaded — Facebook photo posts require an image." },
@@ -151,8 +157,15 @@ async function maybeAutoPostToFacebook(
   const caption =
     fbPost.caption + (fbPost.hashtags.length > 0 ? `\n\n${fbPost.hashtags.map((h) => `#${h}`).join(" ")}` : "");
 
+  // No documented hard cap for attached_media — matching Instagram's carousel
+  // cap of 10 as a sane bound rather than sending an unbounded request.
+  const fbPhotoUrls = photoUrls.slice(0, 10);
+
   try {
-    const postId = await publishToFacebook({ imageUrl: firstPhotoUrl, caption });
+    const postId =
+      fbPhotoUrls.length === 1
+        ? await publishToFacebook({ imageUrl: fbPhotoUrls[0], caption })
+        : await publishMultiPhotoToFacebook({ imageUrls: fbPhotoUrls, caption });
     await prisma.listing.update({
       where: { id: listingId },
       data: { facebookPostId: postId, facebookPostedAt: new Date(), facebookPostError: null },
@@ -176,7 +189,7 @@ async function maybeAutoPostToTiktok(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  firstPhotoUrl: string | undefined
+  photoUrls: string[]
 ) {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
@@ -187,7 +200,7 @@ async function maybeAutoPostToTiktok(
   const tiktokPost = socialPosts.find((p) => p.platform === "tiktok");
   if (!tiktokPost) return;
 
-  if (!firstPhotoUrl) {
+  if (photoUrls.length === 0) {
     await prisma.listing.update({
       where: { id: listingId },
       data: { tiktokPostError: "No photo uploaded — TikTok requires at least one image." },
@@ -204,7 +217,9 @@ async function maybeAutoPostToTiktok(
     const privacyLevel = await getBestPrivacyLevel(accessToken);
     const publishId = await publishToTiktok({
       accessToken,
-      photoUrls: [firstPhotoUrl],
+      // TikTok's own documented photo_images cap, already enforced inside
+      // publishToTiktok too — sliced here as well for clarity at the call site.
+      photoUrls: photoUrls.slice(0, 35),
       title: tiktokPost.caption,
       description,
       privacyLevel,

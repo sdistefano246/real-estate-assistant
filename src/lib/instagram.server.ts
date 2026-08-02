@@ -1,4 +1,7 @@
 import "server-only";
+import sharp from "sharp";
+import { put } from "@vercel/blob";
+import { randomUUID } from "crypto";
 
 // Instagram Graph API (Content Publishing) — posts a photo + caption to a
 // Business/Creator Instagram account. Needs a long-lived access token with
@@ -12,6 +15,59 @@ const GRAPH_API_VERSION = "v21.0";
 const GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
 const CONTAINER_POLL_INTERVAL_MS = 1500;
 const CONTAINER_POLL_TIMEOUT_MS = 20000;
+
+// Instagram's documented supported range for a single photo.
+const MIN_ASPECT_RATIO = 4 / 5; // 0.8, tallest supported portrait
+const MAX_ASPECT_RATIO = 1.91; // widest supported landscape
+
+// Instagram silently letterboxes (doesn't reject) a photo outside its
+// supported aspect ratio, and only supports JPEG — a real live test showed
+// visible black bars on a photo this app posted unmodified. Fixes both by
+// inspecting the image and, only if actually needed, center-cropping to the
+// nearest valid ratio and/or re-encoding as JPEG, then re-uploading the
+// result to get a new public URL. Returns the original URL unchanged when the
+// photo's already fine, to avoid pointless reprocessing. Never throws — a
+// failure here just means Instagram gets the original, possibly-imperfect
+// photo, which beats breaking auto-post entirely over a cosmetic fix.
+async function normalizeImageForInstagram(imageUrl: string): Promise<string> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return imageUrl;
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    const image = sharp(buffer);
+    const { format, width, height } = await image.metadata();
+    if (!width || !height) return imageUrl;
+
+    const ratio = width / height;
+    const needsCrop = ratio < MIN_ASPECT_RATIO || ratio > MAX_ASPECT_RATIO;
+    const needsReencode = format !== "jpeg";
+    if (!needsCrop && !needsReencode) return imageUrl;
+
+    let pipeline = image;
+    if (needsCrop) {
+      const targetRatio = ratio < MIN_ASPECT_RATIO ? MIN_ASPECT_RATIO : MAX_ASPECT_RATIO;
+      // Center-crop toward the nearest valid boundary ratio.
+      const cropWidth = ratio < MIN_ASPECT_RATIO ? width : Math.round(height * targetRatio);
+      const cropHeight = ratio < MIN_ASPECT_RATIO ? Math.round(width / targetRatio) : height;
+      pipeline = pipeline.extract({
+        left: Math.max(0, Math.round((width - cropWidth) / 2)),
+        top: Math.max(0, Math.round((height - cropHeight) / 2)),
+        width: Math.min(cropWidth, width),
+        height: Math.min(cropHeight, height),
+      });
+    }
+    const processed = await pipeline.jpeg({ quality: 90 }).toBuffer();
+
+    const blob = await put(`instagram-normalized/${randomUUID()}.jpg`, processed, {
+      access: "public",
+      contentType: "image/jpeg",
+    });
+    return blob.url;
+  } catch {
+    return imageUrl;
+  }
+}
 
 export function isInstagramConfigured() {
   return Boolean(process.env.INSTAGRAM_ACCESS_TOKEN && process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID);
@@ -48,10 +104,12 @@ export async function publishToInstagram({
     throw new Error("INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_BUSINESS_ACCOUNT_ID are not set");
   }
 
+  const normalizedUrl = await normalizeImageForInstagram(imageUrl);
+
   const containerRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image_url: imageUrl, caption, access_token: accessToken }),
+    body: JSON.stringify({ image_url: normalizedUrl, caption, access_token: accessToken }),
   });
   const containerJson = (await containerRes.json()) as GraphError & { id?: string };
   if (!containerRes.ok || !containerJson.id) {
@@ -68,6 +126,74 @@ export async function publishToInstagram({
   const publishJson = (await publishRes.json()) as GraphError & { id?: string };
   if (!publishRes.ok || !publishJson.id) {
     throw new Error(`Instagram publish failed: ${publishJson.error?.message ?? publishRes.statusText}`);
+  }
+
+  return publishJson.id;
+}
+
+// Multi-photo variant (2-10 images) — a real carousel post, not repeated
+// single posts. Each image becomes its own "child" container (is_carousel_item,
+// no caption of its own), each polled to FINISHED same as a single-image post,
+// then a parent CAROUSEL container references all of them by a comma-separated
+// id string (not a JSON array — that's what the Graph API actually expects
+// here) and carries the caption. Instagram itself crops later carousel images
+// to match the first one's aspect ratio; this app only controls getting each
+// individual image into a valid ratio to begin with (see normalizeImageForInstagram).
+export async function publishCarouselToInstagram({
+  imageUrls,
+  caption,
+}: {
+  imageUrls: string[];
+  caption: string;
+}): Promise<string> {
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const igUserId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  if (!accessToken || !igUserId) {
+    throw new Error("INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_BUSINESS_ACCOUNT_ID are not set");
+  }
+
+  const normalizedUrls = await Promise.all(imageUrls.map(normalizeImageForInstagram));
+
+  const childIds: string[] = [];
+  for (const imageUrl of normalizedUrls) {
+    const childRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: accessToken }),
+    });
+    const childJson = (await childRes.json()) as GraphError & { id?: string };
+    if (!childRes.ok || !childJson.id) {
+      throw new Error(`Instagram carousel child creation failed: ${childJson.error?.message ?? childRes.statusText}`);
+    }
+    await waitForContainerReady(childJson.id, accessToken);
+    childIds.push(childJson.id);
+  }
+
+  const parentRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      media_type: "CAROUSEL",
+      children: childIds.join(","),
+      caption,
+      access_token: accessToken,
+    }),
+  });
+  const parentJson = (await parentRes.json()) as GraphError & { id?: string };
+  if (!parentRes.ok || !parentJson.id) {
+    throw new Error(`Instagram carousel container creation failed: ${parentJson.error?.message ?? parentRes.statusText}`);
+  }
+
+  await waitForContainerReady(parentJson.id, accessToken);
+
+  const publishRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: parentJson.id, access_token: accessToken }),
+  });
+  const publishJson = (await publishRes.json()) as GraphError & { id?: string };
+  if (!publishRes.ok || !publishJson.id) {
+    throw new Error(`Instagram carousel publish failed: ${publishJson.error?.message ?? publishRes.statusText}`);
   }
 
   return publishJson.id;
