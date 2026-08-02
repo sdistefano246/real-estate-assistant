@@ -31,6 +31,10 @@ model Agent {
   // unsupervised publishing to a public platform, higher stakes than any
   // other auto-send in this app, so off by default like autoNurtureEnabled.
   autoPostInstagramEnabled Boolean @default(false)
+  // Same idea as autoPostInstagramEnabled, but posting to the agent's Facebook
+  // Page instead — a separate credential/toggle since Facebook Page posting
+  // uses a Page Access Token, not the Instagram user token above.
+  autoPostFacebookEnabled Boolean @default(false)
   // Opaque secret in the agent's private iCal feed URL. Calendar apps fetch a
   // subscription URL with no auth header, so the unguessable token IS the
   // credential; regenerating it revokes any previously shared link. Null until
@@ -67,6 +71,12 @@ model Listing {
   instagramPostId    String?
   instagramPostedAt  DateTime?
   instagramPostError String?
+
+  // Same outcome-tracking pattern for a Facebook Page auto-post (see
+  // src/lib/facebook.server.ts).
+  facebookPostId    String?
+  facebookPostedAt  DateTime?
+  facebookPostError String?
 
   photos ListingPhoto[]
 

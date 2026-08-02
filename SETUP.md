@@ -68,34 +68,75 @@ server), so large photos don't hit Vercel's request size limits.
 
 Opt-in, off by default, toggled from `/dashboard/settings` → **Automation**. When on, the moment a
 new listing is generated with a photo, it auto-publishes straight to Instagram (no review step) —
-this is more setup than Twilio/Resend since Instagram has no simple pasteable API key:
+this is more setup than Twilio/Resend since Instagram has no simple pasteable API key. **Live-tested
+end to end 2026-08-02** using the path below (the newer Instagram API with Instagram Login — no
+Facebook Page required at all, unlike older Instagram Graph API guides):
 
 1. Convert the target Instagram account to a **Business** or **Creator** account (Instagram app →
    Settings → Account type) if it isn't already — personal accounts can't use the publishing API.
-2. Link it to a **Facebook Page** (Instagram Settings → linked accounts, or via Meta Business
-   Suite). A Page has to exist even if it's never used for anything else.
-3. Create a **Meta Developer App** at https://developers.facebook.com (type: Business), and add the
-   **Instagram Graph API** product to it.
-4. Get a long-lived access token with `instagram_basic` + `instagram_content_publish` permissions.
-   The quickest path for a single account: generate a short-lived token in the Graph API Explorer,
-   then exchange it for a long-lived one (`GET /oauth/access_token?grant_type=fb_exchange_token&...`)
-   — a long-lived token lasts ~60 days and needs refreshing before it expires, there's no
-   auto-refresh built into this app.
-5. Get the Instagram **Business Account ID**: `GET /me/accounts` to find the linked Page, then
-   `GET /{page-id}?fields=instagram_business_account` to get its ID.
-6. Add to `.env` (and Vercel's project env for production):
+2. Create a **Meta Developer App** at https://developers.facebook.com/apps (this needs a **Business
+   Portfolio** to own it — Meta imposes an account-age cooldown on creating one with a brand-new
+   Facebook account; if you hit "your account is too new," it clears within about an hour).
+3. Add the **"Manage messaging & content on Instagram"** use case (under the "Content management"
+   filter, not the default "Featured" list), then go to **Use cases → Customize → API setup with
+   Instagram login**.
+4. Click **"Add all required permissions"**, then separately find and add
+   `instagram_business_content_publish` from the full "Permissions and features" list — it's not
+   included in the one-click shortcut but is the specific permission actual publishing needs.
+5. Add the Instagram account as an **Instagram Tester** under the app's **Roles** tab — the account
+   itself then has to accept that invite from its own Instagram Settings → Apps and Websites →
+   Tester Invites before the connection completes.
+6. Back on "API setup with Instagram login," click **"Add account"** and authorize as that Instagram
+   account (confirms it as a Business account along the way if needed). This also surfaces the
+   Instagram **Business Account ID** directly in the connected-account list.
+7. Click **"Generate token"** next to the connected account, then exchange it for a long-lived one
+   (~60 days, no auto-refresh built into this app) by opening this URL directly in a browser with
+   your own values substituted — do this yourself rather than pasting either token into a chat
+   session, even a throwaway-account one:
+   ```
+   https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=YOUR_APP_SECRET&access_token=YOUR_SHORT_LIVED_TOKEN
+   ```
+   A successful response looks like `{"access_token":"...","expires_in":5184000}`.
+8. Add to `.env` (and Vercel's project env for production):
    ```
    INSTAGRAM_ACCESS_TOKEN="..."
    INSTAGRAM_BUSINESS_ACCOUNT_ID="..."
    ```
-7. In Meta's **Development Mode**, the app can only post to Instagram accounts explicitly added as
-   testers on the app (Roles → Instagram Testers) — fine for a single agent's own account. Posting
-   to accounts outside that list needs Meta App Review for `instagram_content_publish`.
 
 Requires a photo on the listing (Instagram's API needs an image) and a generated Instagram post —
 without either, the listing still generates normally, it just doesn't attempt to post. Any failure
 (expired token, no tester access, a real API error) gets recorded on the listing and shown on the
-Marketing page rather than failing the whole generation.
+Marketing page rather than failing the whole generation. Publishing itself is a create-container →
+poll-until-ready → publish flow (`src/lib/instagram.server.ts`) — a real live test found that photos
+aren't always instantly ready to publish the moment the container is created, despite what older
+docs suggest, so this app polls the container's processing status before publishing rather than
+assuming it's done.
+
+### Marketing — auto-post new listings to Facebook (Meta Graph API)
+
+Same toggle pattern as Instagram, separate credentials. This one uses a **Facebook Page**, not the
+Instagram-Login token above — Facebook Page posting and Instagram posting are genuinely different
+APIs under the same Meta umbrella.
+
+1. You need a Facebook Page (create one via Meta Business Suite if the agent doesn't already have
+   one for their business).
+2. In the same Meta Developer App used for Instagram (or a new one), use the **Graph API
+   Explorer** (Tools → Graph API Explorer): select your app, set "User or Page" to the Page itself
+   (not "Get Token" for a user), and add the `pages_manage_posts` + `pages_read_engagement`
+   permissions, then generate the token. Page tokens issued this way are already long-lived by
+   default (they don't expire the way user tokens do, as long as the underlying user token that
+   created them stays valid).
+3. Note the Page's ID (shown in the Explorer, or via `GET /me/accounts` with a user token).
+4. Add to `.env` (and Vercel's project env for production):
+   ```
+   FACEBOOK_PAGE_ACCESS_TOKEN="..."
+   FACEBOOK_PAGE_ID="..."
+   ```
+
+Publishing is a single call (`POST /{page-id}/photos` with the image URL + caption) — no
+container/poll step like Instagram's flow needs. Same graceful-failure behavior: requires a photo
+and a generated Facebook post, records success/failure on the listing, never fails generation
+itself.
 
 ### Calls (missed-call auto-text) — Twilio
 

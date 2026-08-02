@@ -5,23 +5,28 @@ import {
   setDailyDigestEnabled,
   setAutoNurtureEnabled,
   setAutoPostInstagramEnabled,
+  setAutoPostFacebookEnabled,
 } from "@/app/actions/automation";
 
 export function AutomationSettings({
   dailyDigestEnabled,
   autoNurtureEnabled,
   autoPostInstagramEnabled,
+  autoPostFacebookEnabled,
   resendConfigured,
   anthropicConfigured,
   instagramConfigured,
+  facebookConfigured,
   cronConfigured,
 }: {
   dailyDigestEnabled: boolean;
   autoNurtureEnabled: boolean;
   autoPostInstagramEnabled: boolean;
+  autoPostFacebookEnabled: boolean;
   resendConfigured: boolean;
   anthropicConfigured: boolean;
   instagramConfigured: boolean;
+  facebookConfigured: boolean;
   cronConfigured: boolean;
 }) {
   return (
@@ -67,6 +72,19 @@ export function AutomationSettings({
         warning={
           autoPostInstagramEnabled && !instagramConfigured
             ? "Add INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_BUSINESS_ACCOUNT_ID to actually post — until then, listings still generate normally, they just won't auto-post. See SETUP.md."
+            : null
+        }
+        danger
+      />
+
+      <Toggle
+        title="Auto-post new listings to Facebook"
+        description="The moment a new listing is generated on the Marketing page, publish it straight to your Facebook Page — the generated Facebook caption, with the first uploaded photo. Only posts if the listing actually has a photo and a Facebook post; no review first."
+        enabled={autoPostFacebookEnabled}
+        onToggle={(next) => setAutoPostFacebookEnabled(next)}
+        warning={
+          autoPostFacebookEnabled && !facebookConfigured
+            ? "Add FACEBOOK_PAGE_ACCESS_TOKEN + FACEBOOK_PAGE_ID to actually post — until then, listings still generate normally, they just won't auto-post. See SETUP.md."
             : null
         }
         danger

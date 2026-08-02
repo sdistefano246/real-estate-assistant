@@ -2,6 +2,7 @@ import { getCurrentAgent } from "@/lib/dal.server";
 import { isResendConfigured } from "@/lib/resend.server";
 import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { isInstagramConfigured } from "@/lib/instagram.server";
+import { isFacebookConfigured } from "@/lib/facebook.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 import { ChangePasswordForm } from "./change-password-form";
 import { AutomationSettings } from "./automation-settings";
@@ -23,9 +24,11 @@ export default async function SettingsPage() {
           dailyDigestEnabled={agent?.dailyDigestEnabled ?? false}
           autoNurtureEnabled={agent?.autoNurtureEnabled ?? false}
           autoPostInstagramEnabled={agent?.autoPostInstagramEnabled ?? false}
+          autoPostFacebookEnabled={agent?.autoPostFacebookEnabled ?? false}
           resendConfigured={isResendConfigured()}
           anthropicConfigured={isAnthropicConfigured()}
           instagramConfigured={isInstagramConfigured()}
+          facebookConfigured={isFacebookConfigured()}
           cronConfigured={Boolean(process.env.CRON_SECRET)}
         />
       </div>

@@ -7,6 +7,7 @@ import { getAnthropicClient, isAnthropicConfigured, CLAUDE_MODEL } from "@/lib/a
 import { LISTING_SYSTEM_PROMPT, buildListingUserPrompt } from "@/lib/prompts/listing";
 import { extractJson } from "@/lib/extract-json";
 import { isInstagramConfigured, publishToInstagram } from "@/lib/instagram.server";
+import { isFacebookConfigured, publishToFacebook } from "@/lib/facebook.server";
 
 export type GenerateListingState = { error?: string } | undefined;
 
@@ -72,6 +73,7 @@ export async function generateListing(
   });
 
   await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
+  await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
 
   revalidatePath("/dashboard/marketing");
   return undefined;
@@ -113,6 +115,45 @@ async function maybeAutoPostToInstagram(
     await prisma.listing.update({
       where: { id: listingId },
       data: { instagramPostError: error instanceof Error ? error.message : "Auto-post failed." },
+    });
+  }
+}
+
+// Same best-effort shape as maybeAutoPostToInstagram — never fails listing
+// generation itself.
+async function maybeAutoPostToFacebook(
+  agentId: string,
+  listingId: string,
+  socialPosts: { platform: string; caption: string; hashtags: string[] }[],
+  firstPhotoUrl: string | undefined
+) {
+  const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostFacebookEnabled: true } });
+  if (!agent?.autoPostFacebookEnabled || !isFacebookConfigured()) return;
+
+  const fbPost = socialPosts.find((p) => p.platform === "facebook");
+  if (!fbPost) return;
+
+  if (!firstPhotoUrl) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { facebookPostError: "No photo uploaded — Facebook photo posts require an image." },
+    });
+    return;
+  }
+
+  const caption =
+    fbPost.caption + (fbPost.hashtags.length > 0 ? `\n\n${fbPost.hashtags.map((h) => `#${h}`).join(" ")}` : "");
+
+  try {
+    const postId = await publishToFacebook({ imageUrl: firstPhotoUrl, caption });
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { facebookPostId: postId, facebookPostedAt: new Date(), facebookPostError: null },
+    });
+  } catch (error) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { facebookPostError: error instanceof Error ? error.message : "Auto-post failed." },
     });
   }
 }

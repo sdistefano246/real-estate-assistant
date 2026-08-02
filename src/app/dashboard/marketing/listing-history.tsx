@@ -18,6 +18,9 @@ type ListingItem = {
   instagramPostId: string | null;
   instagramPostedAt: Date | null;
   instagramPostError: string | null;
+  facebookPostId: string | null;
+  facebookPostedAt: Date | null;
+  facebookPostError: string | null;
 };
 
 function parseSocialPosts(raw: string | null): SocialPost[] {
@@ -73,6 +76,16 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
                 {!listing.instagramPostedAt && listing.instagramPostError && (
                   <p className="mt-1 text-xs text-amber-700">
                     Auto-post to Instagram didn&apos;t go through: {listing.instagramPostError}
+                  </p>
+                )}
+                {listing.facebookPostedAt && (
+                  <p className="mt-1 text-xs font-medium text-emerald-700">
+                    ✓ Auto-posted to Facebook {listing.facebookPostedAt.toLocaleString()}
+                  </p>
+                )}
+                {!listing.facebookPostedAt && listing.facebookPostError && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Auto-post to Facebook didn&apos;t go through: {listing.facebookPostError}
                   </p>
                 )}
               </div>
