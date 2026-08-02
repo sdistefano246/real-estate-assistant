@@ -21,6 +21,9 @@ type ListingItem = {
   facebookPostId: string | null;
   facebookPostedAt: Date | null;
   facebookPostError: string | null;
+  tiktokPostId: string | null;
+  tiktokPostedAt: Date | null;
+  tiktokPostError: string | null;
 };
 
 function parseSocialPosts(raw: string | null): SocialPost[] {
@@ -86,6 +89,17 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
                 {!listing.facebookPostedAt && listing.facebookPostError && (
                   <p className="mt-1 text-xs text-amber-700">
                     Auto-post to Facebook didn&apos;t go through: {listing.facebookPostError}
+                  </p>
+                )}
+                {listing.tiktokPostedAt && (
+                  <p className="mt-1 text-xs font-medium text-emerald-700">
+                    ✓ Sent to TikTok {listing.tiktokPostedAt.toLocaleString()} (visible only to the
+                    connected account until TikTok approves public posting)
+                  </p>
+                )}
+                {!listing.tiktokPostedAt && listing.tiktokPostError && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Auto-post to TikTok didn&apos;t go through: {listing.tiktokPostError}
                   </p>
                 )}
               </div>

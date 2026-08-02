@@ -3,13 +3,21 @@ import { isResendConfigured } from "@/lib/resend.server";
 import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { isInstagramConfigured } from "@/lib/instagram.server";
 import { isFacebookConfigured } from "@/lib/facebook.server";
+import { isTiktokConfigured, isTiktokConnected } from "@/lib/tiktok.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 import { ChangePasswordForm } from "./change-password-form";
 import { AutomationSettings } from "./automation-settings";
 import { CalendarFeedSettings } from "./calendar-feed-settings";
+import { TiktokSettings } from "./tiktok-settings";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tiktok?: string }>;
+}) {
   const agent = await getCurrentAgent();
+  const { tiktok } = await searchParams;
+  const tiktokStatus = tiktok === "connected" || tiktok === "error" ? tiktok : undefined;
 
   return (
     <div className="flex flex-col gap-8">
@@ -31,6 +39,14 @@ export default async function SettingsPage() {
           facebookConfigured={isFacebookConfigured()}
           cronConfigured={Boolean(process.env.CRON_SECRET)}
         />
+        <div className="mt-4">
+          <TiktokSettings
+            configured={isTiktokConfigured()}
+            connected={agent ? isTiktokConnected(agent) : false}
+            autoPostEnabled={agent?.autoPostTiktokEnabled ?? false}
+            status={tiktokStatus}
+          />
+        </div>
       </div>
 
       <div>

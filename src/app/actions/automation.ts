@@ -27,3 +27,9 @@ export async function setAutoPostFacebookEnabled(enabled: boolean) {
   await prisma.agent.update({ where: { id: agentId }, data: { autoPostFacebookEnabled: enabled } });
   revalidatePath("/dashboard/settings");
 }
+
+export async function setAutoPostTiktokEnabled(enabled: boolean) {
+  const { agentId } = await verifySession();
+  await prisma.agent.update({ where: { id: agentId }, data: { autoPostTiktokEnabled: enabled } });
+  revalidatePath("/dashboard/settings");
+}

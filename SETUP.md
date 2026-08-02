@@ -138,6 +138,51 @@ container/poll step like Instagram's flow needs. Same graceful-failure behavior:
 and a generated Facebook post, records success/failure on the listing, never fails generation
 itself.
 
+### Marketing — auto-post new listings to TikTok (Content Posting API)
+
+Same opt-in toggle location as Instagram/Facebook, but genuinely different underneath: TikTok has
+**no static, manually-obtained token option**. It requires real per-agent OAuth (connected from
+inside the app, not pasted from a console), and posts a **photo post** (the listing's photo +
+caption), not the on-camera video script shown elsewhere on the Marketing page — there's no video
+in this app to post, and TikTok's API requires actual media, not just text.
+
+**Important limitation to know going in**: until TikTok approves this app for public posting (an
+audit process, see step 2), every post this feature makes is restricted to **`SELF_ONLY`** — it
+publishes successfully, but is visible only to the connected TikTok account itself, not the public.
+The Settings page and the listing history both say this plainly; it isn't hidden in fine print.
+
+1. Create a **TikTok Developer app** at https://developers.tiktok.com/apps (needs a TikTok
+   account).
+2. Add the **Content Posting API** product to the app and request the `video.publish` scope. TikTok
+   gates whether that scope can post *publicly* behind their own app review (typically 2-4 weeks) —
+   until it's approved, the app can still connect and post, just `SELF_ONLY` (see above).
+3. Register the **redirect URI** in the app's settings — it must exact-match what this app sends,
+   which is `<your domain>/api/tiktok/callback`. Register the production one
+   (`https://your-domain.com/api/tiktok/callback`); if testing locally, register a `localhost`
+   version too and set `APP_URL="http://localhost:3000"` in `.env` so the app builds the matching
+   redirect URI.
+4. Add to `.env` (and Vercel's project env for production):
+   ```
+   TIKTOK_CLIENT_KEY="..."
+   TIKTOK_CLIENT_SECRET="..."
+   ```
+5. From `/dashboard/settings` → **Automation**, click **"Connect TikTok"** — this is a real in-app
+   OAuth flow (unlike Instagram/Facebook's paste-a-token-you-got-elsewhere setup), so it walks
+   through TikTok's own consent screen and comes back automatically. Once connected, turn the
+   auto-post toggle on.
+
+Nothing to babysit on the token itself: access tokens expire every 24 hours and refresh
+automatically right before each post; refresh tokens last a year and TikTok may rotate them on
+every use, which this app also handles automatically (both get saved back after every refresh, see
+`src/lib/tiktok.server.ts`). The one thing worth knowing: if this feature goes completely unused
+for over a year, the refresh token itself would go stale and reconnecting via step 5 again would be
+needed.
+
+Requires a photo on the listing (TikTok's photo-post API needs at least one image) and a generated
+TikTok post — without either, the listing still generates normally, it just doesn't attempt to
+post. Any failure (not connected, token refresh failed, a real API error) gets recorded on the
+listing and shown on the Marketing page rather than failing the whole generation.
+
 ### Calls (missed-call auto-text) — Twilio
 
 This one has more setup because it involves a real phone number and SMS compliance:

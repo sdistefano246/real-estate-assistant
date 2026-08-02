@@ -8,6 +8,12 @@ import { LISTING_SYSTEM_PROMPT, buildListingUserPrompt } from "@/lib/prompts/lis
 import { extractJson } from "@/lib/extract-json";
 import { isInstagramConfigured, publishToInstagram } from "@/lib/instagram.server";
 import { isFacebookConfigured, publishToFacebook } from "@/lib/facebook.server";
+import {
+  isTiktokConnected,
+  ensureFreshAccessToken,
+  getBestPrivacyLevel,
+  publishToTiktok,
+} from "@/lib/tiktok.server";
 
 export type GenerateListingState = { error?: string } | undefined;
 
@@ -74,6 +80,7 @@ export async function generateListing(
 
   await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
   await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
+  await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls[0]);
 
   revalidatePath("/dashboard/marketing");
   return undefined;
@@ -154,6 +161,62 @@ async function maybeAutoPostToFacebook(
     await prisma.listing.update({
       where: { id: listingId },
       data: { facebookPostError: error instanceof Error ? error.message : "Auto-post failed." },
+    });
+  }
+}
+
+// Same best-effort shape as maybeAutoPostToInstagram/Facebook, but with two
+// extra steps unique to TikTok: a token refresh (access tokens expire every
+// 24h) and a creator_info lookup TikTok requires immediately before every
+// post (to learn which privacy levels — e.g. SELF_ONLY pre-audit — are
+// currently allowed). Both wrapped in the same catch as the publish call
+// itself, since a failure at any of these steps is equally "auto-post didn't
+// go through" from the listing's point of view.
+async function maybeAutoPostToTiktok(
+  agentId: string,
+  listingId: string,
+  socialPosts: { platform: string; caption: string; hashtags: string[] }[],
+  firstPhotoUrl: string | undefined
+) {
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { autoPostTiktokEnabled: true, tiktokOpenId: true },
+  });
+  if (!agent?.autoPostTiktokEnabled || !isTiktokConnected(agent)) return;
+
+  const tiktokPost = socialPosts.find((p) => p.platform === "tiktok");
+  if (!tiktokPost) return;
+
+  if (!firstPhotoUrl) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { tiktokPostError: "No photo uploaded — TikTok requires at least one image." },
+    });
+    return;
+  }
+
+  const description =
+    tiktokPost.caption +
+    (tiktokPost.hashtags.length > 0 ? `\n\n${tiktokPost.hashtags.map((h) => `#${h}`).join(" ")}` : "");
+
+  try {
+    const accessToken = await ensureFreshAccessToken(agentId);
+    const privacyLevel = await getBestPrivacyLevel(accessToken);
+    const publishId = await publishToTiktok({
+      accessToken,
+      photoUrls: [firstPhotoUrl],
+      title: tiktokPost.caption,
+      description,
+      privacyLevel,
+    });
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { tiktokPostId: publishId, tiktokPostedAt: new Date(), tiktokPostError: null },
+    });
+  } catch (error) {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { tiktokPostError: error instanceof Error ? error.message : "Auto-post failed." },
     });
   }
 }

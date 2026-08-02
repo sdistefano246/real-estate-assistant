@@ -35,6 +35,16 @@ model Agent {
   // Page instead — a separate credential/toggle since Facebook Page posting
   // uses a Page Access Token, not the Instagram user token above.
   autoPostFacebookEnabled Boolean @default(false)
+  // TikTok auto-post connection. Unlike Instagram/Facebook (static tokens
+  // pasted into env vars), TikTok requires real per-agent OAuth: the access
+  // token expires every 24h and the refresh token rotates on every use, so
+  // both must live here and be kept current rather than fetched once. Null
+  // fields mean "not connected yet" (see src/lib/tiktok.server.ts).
+  autoPostTiktokEnabled Boolean   @default(false)
+  tiktokOpenId          String?
+  tiktokAccessToken     String?
+  tiktokRefreshToken    String?
+  tiktokTokenExpiresAt  DateTime?
   // Opaque secret in the agent's private iCal feed URL. Calendar apps fetch a
   // subscription URL with no auth header, so the unguessable token IS the
   // credential; regenerating it revokes any previously shared link. Null until
@@ -77,6 +87,13 @@ model Listing {
   facebookPostId    String?
   facebookPostedAt  DateTime?
   facebookPostError String?
+
+  // Same outcome-tracking pattern for a TikTok photo-post auto-post (see
+  // src/lib/tiktok.server.ts). tiktokPostId is TikTok's publish_id — an async
+  // job id, not a final post id (TikTok processes the post after this).
+  tiktokPostId    String?
+  tiktokPostedAt  DateTime?
+  tiktokPostError String?
 
   photos ListingPhoto[]
 

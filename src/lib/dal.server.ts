@@ -26,6 +26,9 @@ export const getCurrentAgent = cache(async () => {
       autoNurtureEnabled: true,
       autoPostInstagramEnabled: true,
       autoPostFacebookEnabled: true,
+      autoPostTiktokEnabled: true,
+      tiktokOpenId: true,
+      tiktokTokenExpiresAt: true,
       calendarToken: true,
     },
   });
