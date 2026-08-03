@@ -8,6 +8,8 @@ import { getUrgentMilestones } from "@/lib/urgent-milestones.server";
 import { getContactsDueForTouch } from "@/lib/contacts-due.server";
 import { getUpcomingShowings } from "@/lib/upcoming-showings.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
+import { isGoogleConnected } from "@/lib/google.server";
+import { syncBirthdaysFromGoogle } from "@/lib/birthday-sync.server";
 
 // A single scheduled run should never blast an entire back-catalog of quiet
 // contacts in one morning — that reads as spam and burns sending reputation.
@@ -22,6 +24,7 @@ type AutomationAgent = {
   businessName: string | null;
   dailyDigestEnabled: boolean;
   autoNurtureEnabled: boolean;
+  googleRefreshToken: string | null;
 };
 
 export type AgentAutomationResult = {
@@ -29,6 +32,7 @@ export type AgentAutomationResult = {
   nurtureSent: number;
   nurtureSkippedNoEmail: number;
   digestSent: boolean;
+  birthdaysSynced: number;
   errors: string[];
 };
 
@@ -53,6 +57,7 @@ export async function runAutomation(): Promise<AgentAutomationResult[]> {
       businessName: true,
       dailyDigestEnabled: true,
       autoNurtureEnabled: true,
+      googleRefreshToken: true,
     },
   });
 
@@ -69,6 +74,7 @@ async function runForAgent(agent: AutomationAgent): Promise<AgentAutomationResul
     nurtureSent: 0,
     nurtureSkippedNoEmail: 0,
     digestSent: false,
+    birthdaysSynced: 0,
     errors: [],
   };
 
@@ -79,6 +85,19 @@ async function runForAgent(agent: AutomationAgent): Promise<AgentAutomationResul
       result.nurtureSkippedNoEmail = nurture.skippedNoEmail;
     } catch (error) {
       result.errors.push(`nurture: ${errorMessage(error)}`);
+    }
+  }
+
+  // Read-only sync, no opt-in toggle needed (unlike nurture/auto-post's
+  // unsupervised sends) — runs automatically for any connected agent, same
+  // trust level as the Calendar feed. Before the digest so a same-day-synced
+  // birthday can appear in that morning's digest email.
+  if (isGoogleConnected(agent)) {
+    try {
+      const sync = await syncBirthdaysFromGoogle(agent.id);
+      result.birthdaysSynced = sync.updated;
+    } catch (error) {
+      result.errors.push(`google birthday sync: ${errorMessage(error)}`);
     }
   }
 

@@ -89,10 +89,20 @@ Facebook Page required at all, unlike older Instagram Graph API guides):
 6. Back on "API setup with Instagram login," click **"Add account"** and authorize as that Instagram
    account (confirms it as a Business account along the way if needed). This also surfaces the
    Instagram **Business Account ID** directly in the connected-account list.
-7. Click **"Generate token"** next to the connected account, then exchange it for a long-lived one
-   (~60 days, no auto-refresh built into this app) by opening this URL directly in a browser with
-   your own values substituted — do this yourself rather than pasting either token into a chat
-   session, even a throwaway-account one:
+7. Click **"Generate token"** next to the connected account. **Before doing anything else with it**,
+   paste it into the Access Token Debugger (developers.facebook.com/tools/debug/accesstoken/) and
+   check what it shows — as of 2026-08, this button has been observed issuing an **already
+   long-lived token directly** (~60 days, `Type: User`, correct scopes attached), not the
+   short-lived token the older exchange flow below assumes. If the debugger already shows a long
+   expiry and `Valid: True`, **skip the exchange step entirely** and use that token as-is — running
+   an already-long-lived token through the exchange call below fails with a confusing
+   `"Session key invalid... incorrect format"` error (this cost real hours to debug once; don't
+   assume the exchange step is still needed without checking first).
+
+   If the debugger instead shows a short expiry (~1 hour), the token genuinely is short-lived and
+   needs the exchange — open this URL directly in a browser with your own values substituted (do
+   this yourself rather than pasting either token into a chat session, even a throwaway-account
+   one):
    ```
    https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=YOUR_APP_SECRET&access_token=YOUR_SHORT_LIVED_TOKEN
    ```
@@ -121,22 +131,54 @@ APIs under the same Meta umbrella.
 1. You need a Facebook Page (create one via Meta Business Suite if the agent doesn't already have
    one for their business).
 2. In the same Meta Developer App used for Instagram (or a new one), use the **Graph API
-   Explorer** (Tools → Graph API Explorer): select your app, set "User or Page" to the Page itself
-   (not "Get Token" for a user), and add the `pages_manage_posts` + `pages_read_engagement`
-   permissions, then generate the token. Page tokens issued this way are already long-lived by
-   default (they don't expire the way user tokens do, as long as the underlying user token that
-   created them stays valid).
-3. Note the Page's ID (shown in the Explorer, or via `GET /me/accounts` with a user token).
-4. Add to `.env` (and Vercel's project env for production):
+   Explorer** (Tools → Graph API Explorer): select your app, add the `pages_manage_posts` +
+   `pages_read_engagement` + `business_management` + `pages_show_list` permissions, generate a
+   **User Token** (not "Page" in the dropdown — see the real gotcha below for why).
+3. **Extend the User Token to long-lived first**: click the (i) icon next to the Access Token box →
+   "Open in Access Token Tool" → "Extend Access Token." Confirm the result shows an expiry ~60 days
+   out, not "in about an hour" — the tool sometimes silently gives you a fresh short-lived token
+   instead if you don't check.
+4. **Fetch the Page token from that long-lived User Token** — the Explorer's own "User or Page"
+   dropdown method does *not* reliably produce a token that actually acts as the page (see gotcha
+   below). Instead, with the extended User Token still loaded, run a **GET** request (not POST) to:
+   ```
+   me/accounts?fields=id,name,access_token
+   ```
+   and copy the nested `access_token` for your Page from the response.
+5. **This Page token is still short-lived (~1 hour) even though it came from a long-lived User
+   Token** — it needs its own separate exchange. Get the app's core secret from **App settings →
+   Basic → App secret** (different from the Instagram-specific secret if this app also has
+   Instagram set up), then visit this URL directly in your browser (substituting your real values):
+   ```
+   https://graph.facebook.com/v26.0/oauth/access_token?grant_type=fb_exchange_token&client_id=YOUR_APP_ID&client_secret=YOUR_APP_SECRET&fb_exchange_token=YOUR_PAGE_TOKEN_FROM_STEP_4
+   ```
+   A successful response looks like `{"access_token":"...","token_type":"bearer","expires_in":5110099}`
+   — `expires_in` in seconds, divide by 86400 for days (~59 days is normal, confirms it worked).
+6. Note the Page's ID (already visible in step 4's response, alongside the token).
+7. Add to `.env` (and Vercel's project env for production):
    ```
    FACEBOOK_PAGE_ACCESS_TOKEN="..."
    FACEBOOK_PAGE_ID="..."
    ```
 
-Publishing is a single call (`POST /{page-id}/photos` with the image URL + caption) — no
-container/poll step like Instagram's flow needs. Same graceful-failure behavior: requires a photo
-and a generated Facebook post, records success/failure on the listing, never fails generation
-itself.
+**Real gotchas worth banking, found the hard way 2026-08-02/03**:
+- The Explorer's "User or Page" dropdown + "Generate Access Token" button does *not* reliably
+  produce a token that Meta treats as genuinely acting-as-the-page — a real live test failed with
+  `(#200) Unpublished posts must be posted to a page as the page itself` despite the token looking
+  correct (right permissions, "Page" selected). The `me/accounts` fetch in step 4 is the actual
+  correct method.
+- A Page token derived from a genuinely long-lived (60-day) User Token is **still only short-lived
+  by default** — confirmed twice, with two different derivation methods (`me/accounts` and
+  `/{page-id}?fields=access_token`), both gave back a token expiring in ~1 hour. Extending the User
+  Token does not carry over automatically; the Page token needs its own explicit `fb_exchange_token`
+  call (step 5) to actually become long-lived. Skipping this step is why this token kept expiring
+  every few hours throughout initial setup.
+
+A single photo publishes with one call (`POST /{page-id}/photos` with the image URL + caption) — no
+container/poll step like Instagram's flow needs. Multiple photos (2+) use a real multi-photo post
+instead: each photo uploaded unpublished (`published=false`), then one `/feed` post referencing all
+of them via `attached_media`. Same graceful-failure behavior throughout: requires a photo and a
+generated Facebook post, records success/failure on the listing, never fails generation itself.
 
 ### Marketing — auto-post new listings to TikTok (Content Posting API)
 
@@ -182,6 +224,50 @@ Requires a photo on the listing (TikTok's photo-post API needs at least one imag
 TikTok post — without either, the listing still generates normally, it just doesn't attempt to
 post. Any failure (not connected, token refresh failed, a real API error) gets recorded on the
 listing and shown on the Marketing page rather than failing the whole generation.
+
+### Sphere — Google Contacts birthdays + Gmail thread history (Google OAuth)
+
+Two read-only features powered by one Google connection: an upcoming-birthday reminder for Sphere
+contacts (sourced from the agent's real Google Contacts, matched by email), and on-demand real
+Gmail thread history on any Lead or Contact card with an email address. Nothing is ever sent —
+purely reads. No enabled/disabled toggle in Settings the way auto-post/auto-nurture have one;
+connecting already means it's on.
+
+1. Create a project at [console.cloud.google.com](https://console.cloud.google.com), then enable
+   two APIs for it: **People API** and **Gmail API** (APIs & Services → Library → search each by
+   name → Enable).
+2. Configure the **OAuth consent screen** (APIs & Services → OAuth consent screen). Keep it in
+   **Testing** status — publishing to Production triggers Google's security assessment for
+   restricted scopes (Gmail read access is one), which this single-agent app doesn't need. Testing
+   mode allows up to 100 test users with no assessment required. Add the real agent's Google
+   account under **Test users**.
+3. Create credentials (APIs & Services → Credentials → Create Credentials → OAuth client ID), type
+   **Web application**. Add an authorized redirect URI, exact match:
+   `<your domain>/api/google/callback` (e.g. `https://real-estate-assistant-ochre.vercel.app/api/google/callback`).
+4. Add to `.env` (and Vercel's project env for production):
+   ```
+   GOOGLE_CLIENT_ID="..."
+   GOOGLE_CLIENT_SECRET="..."
+   ```
+5. From `/dashboard/settings` → **Google**, click **"Connect Google"** — a real in-app OAuth flow
+   through Google's own consent screen. Since the app is in Testing mode, Google shows an
+   "unverified app" warning on the consent screen for anyone other than a listed test user — click
+   "Advanced" → "Go to [app name] (unsafe)" to proceed; this is expected for a Testing-mode app,
+   not a sign of misconfiguration.
+6. Click **"Sync birthdays now"** to pull birthdays immediately rather than waiting for the next
+   scheduled cron run. Only Sphere contacts whose email matches a Google Contact that has a
+   birthday set will pick one up — no birthday, no matching email, or no email on either side all
+   mean that contact is silently skipped, not an error.
+
+**Not yet confirmed**: whether `birthdays` is actually populated on a `people.connections.list`
+response under `contacts.readonly` alone, or genuinely needs the extra `user.birthday.read` scope
+also requested here. Both are requested up front regardless, so this only matters for
+understanding *why* it works, not for setup — but if a real Google Contact with a birthday set
+returns an empty `birthdays` array after connecting, that's the first thing to check.
+
+Gmail thread history loads on click ("Load email history (Gmail)" on a Lead/Contact card),
+deliberately not automatically on page load — calling Gmail once per row every time the Leads or
+Sphere page renders would be a real rate-limit risk with no caching layer built for it.
 
 ### Calls (missed-call auto-text) — Twilio
 

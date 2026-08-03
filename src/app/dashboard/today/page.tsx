@@ -1,29 +1,37 @@
 import Link from "next/link";
 import { verifySession } from "@/lib/dal.server";
+import { prisma } from "@/lib/db.server";
 import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { isResendConfigured } from "@/lib/resend.server";
 import { isTwilioConfigured } from "@/lib/twilio.server";
 import { getStaleLeads } from "@/lib/stale-leads.server";
 import { getUrgentMilestones } from "@/lib/urgent-milestones.server";
 import { getUpcomingShowings } from "@/lib/upcoming-showings.server";
+import { getUpcomingBirthdays } from "@/lib/upcoming-birthdays.server";
 import { LeadCard } from "../leads/lead-card";
 import { MilestoneRow } from "../transactions/milestone-row";
 
 export default async function TodayPage() {
   const { agentId } = await verifySession();
 
-  const [staleLeads, urgentMilestones, upcomingShowings] = await Promise.all([
+  const [staleLeads, urgentMilestones, upcomingShowings, upcomingBirthdays, agent] = await Promise.all([
     getStaleLeads(agentId),
     getUrgentMilestones(agentId),
     getUpcomingShowings(agentId),
+    getUpcomingBirthdays(agentId),
+    prisma.agent.findUniqueOrThrow({ where: { id: agentId }, select: { googleRefreshToken: true } }),
   ]);
 
   const anthropicConfigured = isAnthropicConfigured();
   const resendConfigured = isResendConfigured();
   const twilioConfigured = isTwilioConfigured();
+  const googleConnected = Boolean(agent.googleRefreshToken);
 
   const nothingToDo =
-    staleLeads.length === 0 && urgentMilestones.length === 0 && upcomingShowings.length === 0;
+    staleLeads.length === 0 &&
+    urgentMilestones.length === 0 &&
+    upcomingShowings.length === 0 &&
+    upcomingBirthdays.length === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -38,7 +46,7 @@ export default async function TodayPage() {
       {nothingToDo && (
         <p className="text-sm text-stone-400">
           Nothing waiting on you right now — every open lead has been contacted recently, no
-          deadlines are close, and no showings are coming up.
+          deadlines or birthdays are close, and no showings are coming up.
         </p>
       )}
 
@@ -91,6 +99,26 @@ export default async function TodayPage() {
         </div>
       )}
 
+      {upcomingBirthdays.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-teal-900">Birthdays coming up</h2>
+          <div className="flex flex-col gap-1.5">
+            {upcomingBirthdays.map((birthday) => (
+              <Link
+                key={birthday.id}
+                href="/dashboard/sphere"
+                className="flex items-center justify-between rounded-md border border-stone-200 bg-white px-4 py-2.5 text-sm hover:border-stone-300"
+              >
+                <span className="text-teal-900">{birthday.name}</span>
+                <span className="text-xs text-stone-500">
+                  {birthday.daysUntil === 0 ? "Today" : birthday.daysUntil === 1 ? "Tomorrow" : `In ${birthday.daysUntil} days`}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {staleLeads.length > 0 && (
         <div>
           <h2 className="mb-2 text-sm font-semibold text-teal-900">Leads waiting on you</h2>
@@ -104,6 +132,7 @@ export default async function TodayPage() {
                 twilioConfigured={twilioConfigured}
                 isStale
                 reason={lead.reason}
+                googleConnected={googleConnected}
               />
             ))}
           </div>

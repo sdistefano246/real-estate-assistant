@@ -35,9 +35,10 @@ export async function GET(request: NextRequest) {
       agents: acc.agents + 1,
       digestsSent: acc.digestsSent + (r.digestSent ? 1 : 0),
       nurtureSent: acc.nurtureSent + r.nurtureSent,
+      birthdaysSynced: acc.birthdaysSynced + r.birthdaysSynced,
       errors: acc.errors + r.errors.length,
     }),
-    { agents: 0, digestsSent: 0, nurtureSent: 0, errors: 0 }
+    { agents: 0, digestsSent: 0, nurtureSent: 0, birthdaysSynced: 0, errors: 0 }
   );
 
   return Response.json({ ok: true, ...summary, results });

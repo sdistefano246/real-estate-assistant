@@ -3,6 +3,8 @@
 import { useTransition, useState, useActionState } from "react";
 import { deleteLead, draftEmail, logInteraction, sendEmail, sendText, updateLeadStatus } from "@/app/actions/leads";
 import { convertToTransaction } from "@/app/actions/transactions";
+import { getGmailThreadHistory } from "@/app/actions/google";
+import type { GmailThreadSummary } from "@/lib/google-gmail.server";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@/lib/lead-status";
 import { formatRelativeTime } from "@/lib/relative-time";
 
@@ -66,6 +68,7 @@ export function LeadCard({
   twilioConfigured,
   isStale,
   reason,
+  googleConnected = false,
 }: {
   lead: LeadItem;
   anthropicConfigured: boolean;
@@ -73,6 +76,7 @@ export function LeadCard({
   twilioConfigured: boolean;
   isStale: boolean;
   reason?: string;
+  googleConnected?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +84,25 @@ export function LeadCard({
   const [showConvertForm, setShowConvertForm] = useState(false);
   const convertAction = convertToTransaction.bind(null, lead.id);
   const [convertState, convertFormAction, convertPending] = useActionState(convertAction, undefined);
+
+  // Gmail thread history — loaded on click only (see google-gmail.server.ts
+  // for why: calling Gmail during every page render doesn't scale). null =
+  // never loaded, [] = loaded and genuinely empty.
+  const [gmailThreads, setGmailThreads] = useState<GmailThreadSummary[] | null>(null);
+  const [gmailPending, startGmailTransition] = useTransition();
+  const [gmailError, setGmailError] = useState<string | null>(null);
+
+  function loadGmailHistory() {
+    if (!lead.email) return;
+    setGmailError(null);
+    startGmailTransition(async () => {
+      try {
+        setGmailThreads(await getGmailThreadHistory(lead.email!));
+      } catch (e) {
+        setGmailError(e instanceof Error ? e.message : "Couldn't load Gmail history.");
+      }
+    });
+  }
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -262,6 +285,41 @@ export function LeadCard({
           >
             {isPending ? "Drafting…" : "Draft follow-up email"}
           </button>
+        )}
+
+        {googleConnected && lead.email && (
+          <div className="mt-3">
+            {gmailThreads === null && (
+              <button
+                disabled={gmailPending}
+                onClick={loadGmailHistory}
+                className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+              >
+                {gmailPending ? "Loading…" : "Load email history (Gmail)"}
+              </button>
+            )}
+            {gmailError && <p className="mt-2 text-xs text-red-600">{gmailError}</p>}
+            {gmailThreads !== null && gmailThreads.length === 0 && (
+              <p className="text-xs text-stone-400">No Gmail threads found with this address.</p>
+            )}
+            {gmailThreads !== null && gmailThreads.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium text-stone-500">Gmail thread history</p>
+                {gmailThreads.map((thread) => (
+                  <div key={thread.threadId} className="rounded-md border border-stone-200 bg-stone-50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-teal-900">{thread.subject}</p>
+                      <span className="shrink-0 text-xs text-stone-400">{formatRelativeTime(thread.lastMessageAt)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">
+                      {thread.fromMe ? "You: " : ""}
+                      {thread.snippet}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* One chronological history — email, text, and logged touches interleaved by

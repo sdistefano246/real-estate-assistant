@@ -2,8 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { draftCheckIn, logContactTouch, sendCheckIn } from "@/app/actions/contacts";
+import { getGmailThreadHistory } from "@/app/actions/google";
+import type { GmailThreadSummary } from "@/lib/google-gmail.server";
 import { CONTACT_RELATIONSHIP_LABELS, type ContactRelationship } from "@/lib/contact-relationship";
 import { formatRelativeTime } from "@/lib/relative-time";
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function formatBirthday(month: number, day: number): string {
+  return `${MONTH_NAMES[month - 1]} ${day}`;
+}
 
 type CheckInLogItem = { id: string; subject: string; body: string; status: string; createdAt: Date };
 type TouchItem = { id: string; note: string; createdAt: Date };
@@ -21,6 +31,8 @@ type ContactItem = {
   notes: string | null;
   createdAt: Date;
   lastContactedAt: Date | null;
+  birthdayMonth: number | null;
+  birthdayDay: number | null;
   checkInLogs: CheckInLogItem[];
   contactTouches: TouchItem[];
 };
@@ -31,16 +43,36 @@ export function ContactCard({
   resendConfigured,
   isDue,
   reason,
+  googleConnected = false,
 }: {
   contact: ContactItem;
   anthropicConfigured: boolean;
   resendConfigured: boolean;
   isDue: boolean;
   reason?: string;
+  googleConnected?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
+
+  // Gmail thread history — loaded on click only, same reasoning as
+  // lead-card.tsx (avoids calling Gmail during every Sphere page render).
+  const [gmailThreads, setGmailThreads] = useState<GmailThreadSummary[] | null>(null);
+  const [gmailPending, startGmailTransition] = useTransition();
+  const [gmailError, setGmailError] = useState<string | null>(null);
+
+  function loadGmailHistory() {
+    if (!contact.email) return;
+    setGmailError(null);
+    startGmailTransition(async () => {
+      try {
+        setGmailThreads(await getGmailThreadHistory(contact.email!));
+      } catch (e) {
+        setGmailError(e instanceof Error ? e.message : "Couldn't load Gmail history.");
+      }
+    });
+  }
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -86,6 +118,11 @@ export function ContactCard({
             {isDue && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
                 Due for a touch
+              </span>
+            )}
+            {contact.birthdayMonth && contact.birthdayDay && (
+              <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-800">
+                Birthday {formatBirthday(contact.birthdayMonth, contact.birthdayDay)}
               </span>
             )}
           </div>
@@ -135,6 +172,41 @@ export function ContactCard({
           >
             {isPending ? "Drafting…" : "Draft check-in"}
           </button>
+        )}
+
+        {googleConnected && contact.email && (
+          <div className="mt-3">
+            {gmailThreads === null && (
+              <button
+                disabled={gmailPending}
+                onClick={loadGmailHistory}
+                className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+              >
+                {gmailPending ? "Loading…" : "Load email history (Gmail)"}
+              </button>
+            )}
+            {gmailError && <p className="mt-2 text-xs text-red-600">{gmailError}</p>}
+            {gmailThreads !== null && gmailThreads.length === 0 && (
+              <p className="text-xs text-stone-400">No Gmail threads found with this address.</p>
+            )}
+            {gmailThreads !== null && gmailThreads.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium text-stone-500">Gmail thread history</p>
+                {gmailThreads.map((thread) => (
+                  <div key={thread.threadId} className="rounded-md border border-stone-200 bg-stone-50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-teal-900">{thread.subject}</p>
+                      <span className="shrink-0 text-xs text-stone-400">{formatRelativeTime(thread.lastMessageAt)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">
+                      {thread.fromMe ? "You: " : ""}
+                      {thread.snippet}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {timeline.map((item) => {

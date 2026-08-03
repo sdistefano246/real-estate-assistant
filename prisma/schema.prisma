@@ -45,6 +45,18 @@ model Agent {
   tiktokAccessToken     String?
   tiktokRefreshToken    String?
   tiktokTokenExpiresAt  DateTime?
+  // Google OAuth connection — powers Google Contacts birthday sync (Sphere)
+  // and on-demand Gmail thread history (Leads/Sphere). Read-only scopes, no
+  // unsupervised sending, so there's no enabled/disabled toggle the way
+  // auto-post/auto-nurture have one — "connected" already means "on." Same
+  // null-means-not-connected convention as the TikTok fields above (see
+  // src/lib/google.server.ts). googleRefreshToken isn't always re-issued on
+  // a re-consent, so it's preserved rather than overwritten when absent.
+  googleEmail             String?
+  googleAccessToken       String?
+  googleRefreshToken      String?
+  googleTokenExpiresAt    DateTime?
+  googleContactsSyncedAt  DateTime?
   // Opaque secret in the agent's private iCal feed URL. Calendar apps fetch a
   // subscription URL with no auth header, so the unguessable token IS the
   // credential; regenerating it revokes any previously shared link. Null until
@@ -279,6 +291,18 @@ model Contact {
   notes           String?
   lastContactedAt DateTime?
   createdAt       DateTime     @default(now())
+  // Synced from Google Contacts (People API), matched to this Contact by
+  // email — see src/lib/birthday-sync.server.ts. Three separate optional
+  // ints, not a DateTime: Google's own birthday field is independently
+  // optional per-component and commonly omits the year, so forcing a fake
+  // placeholder year would poison any "days until birthday" math.
+  // googleContactResourceName is People API's stable id for the matched
+  // contact, so a re-sync updates in place instead of re-matching by email
+  // every run.
+  birthdayMonth              Int?
+  birthdayDay                Int?
+  birthdayYear               Int?
+  googleContactResourceName  String?
 
   checkInLogs   CheckInLog[]
   contactTouches ContactTouch[]

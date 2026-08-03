@@ -4,20 +4,23 @@ import { isAnthropicConfigured } from "@/lib/anthropic.server";
 import { isInstagramConfigured } from "@/lib/instagram.server";
 import { isFacebookConfigured } from "@/lib/facebook.server";
 import { isTiktokConfigured, isTiktokConnected } from "@/lib/tiktok.server";
+import { isGoogleConfigured } from "@/lib/google.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 import { ChangePasswordForm } from "./change-password-form";
 import { AutomationSettings } from "./automation-settings";
 import { CalendarFeedSettings } from "./calendar-feed-settings";
 import { TiktokSettings } from "./tiktok-settings";
+import { GoogleSettings } from "./google-settings";
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tiktok?: string }>;
+  searchParams: Promise<{ tiktok?: string; google?: string }>;
 }) {
   const agent = await getCurrentAgent();
-  const { tiktok } = await searchParams;
+  const { tiktok, google } = await searchParams;
   const tiktokStatus = tiktok === "connected" || tiktok === "error" ? tiktok : undefined;
+  const googleStatus = google === "connected" || google === "error" ? google : undefined;
 
   return (
     <div className="flex flex-col gap-8">
@@ -47,6 +50,17 @@ export default async function SettingsPage({
             status={tiktokStatus}
           />
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-teal-900">Google</h2>
+        <GoogleSettings
+          configured={isGoogleConfigured()}
+          connected={agent?.googleConnected ?? false}
+          googleEmail={agent?.googleEmail ?? null}
+          syncedAt={agent?.googleContactsSyncedAt ?? null}
+          status={googleStatus}
+        />
       </div>
 
       <div>

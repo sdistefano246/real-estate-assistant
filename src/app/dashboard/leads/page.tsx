@@ -46,13 +46,19 @@ export default async function LeadsPage({
       },
     }),
     prisma.lead.count({ where: { agentId } }),
-    prisma.agent.findUniqueOrThrow({ where: { id: agentId }, select: { autoAckEnabled: true } }),
+    prisma.agent.findUniqueOrThrow({
+      where: { id: agentId },
+      select: { autoAckEnabled: true, googleRefreshToken: true },
+    }),
     getStaleLeadIds(agentId),
   ]);
 
   const anthropicConfigured = isAnthropicConfigured();
   const resendConfigured = isResendConfigured();
   const twilioConfigured = isTwilioConfigured();
+  // Only a truthiness check ever leaves this scope — the raw token itself
+  // is never passed down to LeadCard (a client component).
+  const googleConnected = Boolean(agent.googleRefreshToken);
 
   return (
     <div className="flex flex-col gap-8">
@@ -98,6 +104,7 @@ export default async function LeadsPage({
                 resendConfigured={resendConfigured}
                 twilioConfigured={twilioConfigured}
                 isStale={staleLeadIds.has(lead.id)}
+                googleConnected={googleConnected}
               />
             ))}
           </div>

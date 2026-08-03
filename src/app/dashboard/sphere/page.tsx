@@ -9,7 +9,7 @@ import { AddContactForm } from "./add-contact-form";
 export default async function SpherePage() {
   const { agentId } = await verifySession();
 
-  const [contacts, dueContacts] = await Promise.all([
+  const [contacts, dueContacts, agent] = await Promise.all([
     prisma.contact.findMany({
       where: { agentId },
       orderBy: { createdAt: "desc" },
@@ -19,12 +19,16 @@ export default async function SpherePage() {
       },
     }),
     getContactsDueForTouch(agentId),
+    prisma.agent.findUniqueOrThrow({ where: { id: agentId }, select: { googleRefreshToken: true } }),
   ]);
 
   const dueMap = new Map(dueContacts.map((c) => [c.id, c.reason]));
 
   const anthropicConfigured = isAnthropicConfigured();
   const resendConfigured = isResendConfigured();
+  // Only a truthiness check ever leaves this scope — the raw token itself is
+  // never passed down to ContactCard (a client component).
+  const googleConnected = Boolean(agent.googleRefreshToken);
 
   return (
     <div className="flex flex-col gap-8">
@@ -61,6 +65,7 @@ export default async function SpherePage() {
               resendConfigured={resendConfigured}
               isDue={dueMap.has(contact.id)}
               reason={dueMap.get(contact.id)}
+              googleConnected={googleConnected}
             />
           ))}
         </div>

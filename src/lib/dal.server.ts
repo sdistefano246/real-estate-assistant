@@ -14,7 +14,7 @@ export const verifySession = cache(async () => {
 
 export const getCurrentAgent = cache(async () => {
   const session = await verifySession();
-  return prisma.agent.findUnique({
+  const agent = await prisma.agent.findUnique({
     where: { id: session.agentId },
     select: {
       id: true,
@@ -29,7 +29,19 @@ export const getCurrentAgent = cache(async () => {
       autoPostTiktokEnabled: true,
       tiktokOpenId: true,
       tiktokTokenExpiresAt: true,
+      googleEmail: true,
+      googleTokenExpiresAt: true,
+      googleContactsSyncedAt: true,
+      // Selected only to compute the boolean below, then dropped — this app's
+      // Lead/Contact cards are client components, and the raw refresh token
+      // is a real bearer credential (unlike tiktokOpenId, which is just an
+      // identifier). Never return it from this general-purpose cached call.
+      googleRefreshToken: true,
       calendarToken: true,
     },
   });
+  if (!agent) return agent;
+
+  const { googleRefreshToken, ...rest } = agent;
+  return { ...rest, googleConnected: Boolean(googleRefreshToken) };
 });
