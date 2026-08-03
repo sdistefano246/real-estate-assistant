@@ -144,10 +144,12 @@ export async function ensureFreshAccessToken(agentId: string): Promise<string> {
 type TiktokApiError = { error?: { code?: string; message?: string; log_id?: string } };
 
 // TikTok requires checking the creator's currently-allowed privacy levels
-// immediately before every post. Prefers the most public option available;
-// falls back to whatever TikTok actually offers (SELF_ONLY for an unaudited
-// app) so this keeps working with no code change once the app passes
-// TikTok's audit.
+// immediately before every post. The creator_info response doesn't reflect
+// this app's own audit status — an unaudited app's posts are rejected
+// server-side with `unaudited_client_can_only_post_to_private_accounts` if
+// a public level is used, even when the creator's account nominally allows
+// PUBLIC_TO_EVERYONE. So SELF_ONLY is preferred first (guaranteed to work
+// pre-audit), falling back to whatever's actually offered otherwise.
 export async function getBestPrivacyLevel(accessToken: string): Promise<string> {
   const res = await fetch(`${API_BASE}/post/publish/creator_info/query/`, {
     method: "POST",
@@ -159,7 +161,7 @@ export async function getBestPrivacyLevel(accessToken: string): Promise<string> 
     throw new Error(`TikTok creator info lookup failed: ${json.error?.message ?? res.statusText}`);
   }
 
-  return options.find((option) => option === "PUBLIC_TO_EVERYONE") ?? options[0];
+  return options.find((option) => option === "SELF_ONLY") ?? options[0];
 }
 
 export async function publishToTiktok({
