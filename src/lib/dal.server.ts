@@ -9,6 +9,15 @@ export const verifySession = cache(async () => {
   if (!payload?.agentId) {
     redirect("/login");
   }
+  // The session cookie is a signed JWT, verified only for signature/expiry —
+  // it's never checked against the database on its own. A stale cookie
+  // pointing at a deleted (or since-recreated) Agent row would otherwise
+  // pass this check and only fail later, deep inside whatever query actually
+  // needed the agent, as a raw 500 instead of a clean redirect to login.
+  const exists = await prisma.agent.findUnique({ where: { id: payload.agentId }, select: { id: true } });
+  if (!exists) {
+    redirect("/login");
+  }
   return { agentId: payload.agentId };
 });
 
