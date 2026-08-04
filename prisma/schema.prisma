@@ -19,6 +19,12 @@ model Agent {
   name            String
   businessName    String?
   phone           String?
+  // Forgot-password flow. Single-use, short-lived opaque token (not the
+  // calendar feed's long-lived subscription token — this one is cleared
+  // after one successful reset or once expired). Null means no reset in
+  // progress.
+  resetToken           String?   @unique
+  resetTokenExpiresAt  DateTime?
   // Optional persona name for automated first-touch communication (missed-call
   // auto-text, instant-ack drafts) — e.g. "Nora." Null means no persona: those
   // messages stay generic/unsigned, exactly today's behavior. Deliberately not
