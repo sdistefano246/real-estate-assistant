@@ -18,6 +18,11 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/contacts.readonly",
   "https://www.googleapis.com/auth/user.birthday.read",
+  // Needed for fetchGoogleProfileEmail()'s userinfo call — none of the three
+  // scopes above grant that endpoint access on their own. Without this, the
+  // token exchange succeeds but the userinfo call is rejected outright
+  // ("missing required authentication credential"), not a config problem.
+  "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
