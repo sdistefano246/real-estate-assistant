@@ -78,14 +78,9 @@ export async function generateListing(
     },
   });
 
-  const t0 = Date.now();
-  console.error("[diag2] starting, photos:", photoUrls.length);
   await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls);
-  console.error("[diag2] Instagram done at", Date.now() - t0, "ms");
   await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls);
-  console.error("[diag2] Facebook done at", Date.now() - t0, "ms");
   await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls);
-  console.error("[diag2] all done at", Date.now() - t0, "ms");
 
   revalidatePath("/dashboard/marketing");
   return undefined;
