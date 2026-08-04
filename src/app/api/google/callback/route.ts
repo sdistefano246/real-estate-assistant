@@ -28,6 +28,12 @@ export async function GET(request: Request) {
   cookieStore.delete(STATE_COOKIE_NAME);
 
   if (!code || !state || !expectedState || state !== expectedState) {
+    console.error("Google OAuth callback: CSRF state check failed", {
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      hasExpectedState: Boolean(expectedState),
+      stateMatches: state === expectedState,
+    });
     return settingsRedirect(request, "error");
   }
 
@@ -47,7 +53,8 @@ export async function GET(request: Request) {
       },
     });
     return settingsRedirect(request, "connected");
-  } catch {
+  } catch (error) {
+    console.error("Google OAuth callback failed:", error);
     return settingsRedirect(request, "error");
   }
 }
