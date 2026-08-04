@@ -154,20 +154,28 @@ export async function publishCarouselToInstagram({
 
   const normalizedUrls = await Promise.all(imageUrls.map(normalizeImageForInstagram));
 
-  const childIds: string[] = [];
-  for (const imageUrl of normalizedUrls) {
-    const childRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: accessToken }),
-    });
-    const childJson = (await childRes.json()) as GraphError & { id?: string };
-    if (!childRes.ok || !childJson.id) {
-      throw new Error(`Instagram carousel child creation failed: ${childJson.error?.message ?? childRes.statusText}`);
-    }
-    await waitForContainerReady(childJson.id, accessToken);
-    childIds.push(childJson.id);
-  }
+  // Each child container is independent until the final CAROUSEL container
+  // references them all, so create + poll them concurrently rather than one
+  // at a time. Sequential was the real cause of a silent production timeout
+  // with 10 photos: create-then-poll-until-ready (up to 20s) per image, times
+  // 10, could take up to ~200s serially — comfortably past this route's
+  // serverless time limit, killing the request before it could even record
+  // an error. Concurrent is bounded by the single slowest image instead.
+  const childIds = await Promise.all(
+    normalizedUrls.map(async (imageUrl) => {
+      const childRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: accessToken }),
+      });
+      const childJson = (await childRes.json()) as GraphError & { id?: string };
+      if (!childRes.ok || !childJson.id) {
+        throw new Error(`Instagram carousel child creation failed: ${childJson.error?.message ?? childRes.statusText}`);
+      }
+      await waitForContainerReady(childJson.id, accessToken);
+      return childJson.id;
+    })
+  );
 
   const parentRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
     method: "POST",

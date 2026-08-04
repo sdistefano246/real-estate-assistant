@@ -63,19 +63,25 @@ export async function publishMultiPhotoToFacebook({
     throw new Error("FACEBOOK_PAGE_ACCESS_TOKEN / FACEBOOK_PAGE_ID are not set");
   }
 
-  const mediaIds: string[] = [];
-  for (const imageUrl of imageUrls) {
-    const uploadRes = await fetch(`${GRAPH_API_BASE}/${pageId}/photos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: imageUrl, published: false, access_token: accessToken }),
-    });
-    const uploadJson = (await uploadRes.json()) as GraphError & { id?: string };
-    if (!uploadRes.ok || !uploadJson.id) {
-      throw new Error(`Facebook unpublished photo upload failed: ${uploadJson.error?.message ?? uploadRes.statusText}`);
-    }
-    mediaIds.push(uploadJson.id);
-  }
+  // Each unpublished photo upload is independent until the final /feed call
+  // references them all — run concurrently rather than one at a time. Same
+  // fix as Instagram's carousel: sequential uploads for a real 10-photo
+  // listing add up, and this call runs right after Instagram's in the same
+  // request, compounding the time budget risk.
+  const mediaIds = await Promise.all(
+    imageUrls.map(async (imageUrl) => {
+      const uploadRes = await fetch(`${GRAPH_API_BASE}/${pageId}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: imageUrl, published: false, access_token: accessToken }),
+      });
+      const uploadJson = (await uploadRes.json()) as GraphError & { id?: string };
+      if (!uploadRes.ok || !uploadJson.id) {
+        throw new Error(`Facebook unpublished photo upload failed: ${uploadJson.error?.message ?? uploadRes.statusText}`);
+      }
+      return uploadJson.id;
+    })
+  );
 
   const postRes = await fetch(`${GRAPH_API_BASE}/${pageId}/feed`, {
     method: "POST",
