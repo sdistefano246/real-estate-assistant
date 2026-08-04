@@ -78,9 +78,14 @@ export async function generateListing(
     },
   });
 
+  const t0 = Date.now();
+  console.error("[diag] starting Instagram auto-post, photoUrls:", photoUrls.length);
   await maybeAutoPostToInstagram(agentId, listing.id, parsed.socialPosts, photoUrls);
+  console.error("[diag] Instagram step finished after", Date.now() - t0, "ms");
   await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls);
+  console.error("[diag] Facebook step finished after", Date.now() - t0, "ms");
   await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls);
+  console.error("[diag] all social steps finished after", Date.now() - t0, "ms");
 
   revalidatePath("/dashboard/marketing");
   return undefined;
