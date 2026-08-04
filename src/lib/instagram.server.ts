@@ -123,6 +123,33 @@ async function publishMediaWithRetry(
   throw new Error(`${errorPrefix}: ${lastMessage}`);
 }
 
+// Creates one carousel child container and waits for it to be ready, with a
+// short retry-and-backoff on the creation call itself — a live production
+// test showed Meta reject simultaneous container-creation requests with a
+// generic "Fatal" error, which cleared on retry (a transient condition, not
+// a permanent rejection of the request itself).
+async function createCarouselChild(igUserId: string, imageUrl: string, accessToken: string): Promise<string> {
+  const RETRY_DELAYS_MS = [1000, 2000];
+  let lastMessage = "unknown error";
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    const childRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: accessToken }),
+    });
+    const childJson = (await childRes.json()) as GraphError & { id?: string };
+    if (childRes.ok && childJson.id) {
+      await waitForContainerReady(childJson.id, accessToken);
+      return childJson.id;
+    }
+    lastMessage = childJson.error?.message ?? childRes.statusText;
+    if (attempt < RETRY_DELAYS_MS.length) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw new Error(`Instagram carousel child creation failed: ${lastMessage}`);
+}
+
 export async function publishToInstagram({
   imageUrl,
   caption,
@@ -178,26 +205,25 @@ export async function publishCarouselToInstagram({
 
   // Each child container is independent until the final CAROUSEL container
   // references them all, so create + poll them concurrently rather than one
-  // at a time. Sequential was the real cause of a silent production timeout
-  // with 10 photos: create-then-poll-until-ready (up to 20s) per image, times
-  // 10, could take up to ~200s serially — comfortably past this route's
-  // serverless time limit, killing the request before it could even record
-  // an error. Concurrent is bounded by the single slowest image instead.
-  const childIds = await Promise.all(
-    normalizedUrls.map(async (imageUrl) => {
-      const childRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: accessToken }),
-      });
-      const childJson = (await childRes.json()) as GraphError & { id?: string };
-      if (!childRes.ok || !childJson.id) {
-        throw new Error(`Instagram carousel child creation failed: ${childJson.error?.message ?? childRes.statusText}`);
-      }
-      await waitForContainerReady(childJson.id, accessToken);
-      return childJson.id;
-    })
-  );
+  // at a time — fully sequential was the real cause of a silent production
+  // timeout with 10 photos (create-then-poll-until-ready up to 20s per image,
+  // times 10, up to ~200s serially, past this route's serverless time limit,
+  // killing the request before it could even record an error).
+  //
+  // But full concurrency (all 10 at once) traded that for a different real
+  // failure: Meta rejected simultaneous container-creation requests from the
+  // same token with a generic "Fatal" error on a live production test.
+  // CHILD_BATCH_SIZE caps how many run at once — fast enough to stay well
+  // under the timeout, gentler on Meta's rate limits than firing all 10
+  // simultaneously. Each creation is also retried with backoff (see
+  // createCarouselChild), since "Fatal" read as a transient condition.
+  const CHILD_BATCH_SIZE = 4;
+  const childIds: string[] = [];
+  for (let i = 0; i < normalizedUrls.length; i += CHILD_BATCH_SIZE) {
+    const batch = normalizedUrls.slice(i, i + CHILD_BATCH_SIZE);
+    const batchIds = await Promise.all(batch.map((imageUrl) => createCarouselChild(igUserId, imageUrl, accessToken)));
+    childIds.push(...batchIds);
+  }
 
   const parentRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
     method: "POST",
