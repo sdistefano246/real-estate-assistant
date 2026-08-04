@@ -10,7 +10,7 @@ import {
   buildInstantAckUserPrompt,
 } from "@/lib/prompts/instant-ack";
 
-type AckAgent = { businessName: string | null; autoAckEnabled: boolean };
+type AckAgent = { businessName: string | null; autoAckEnabled: boolean; assistantName?: string | null };
 type AckLead = { id: string; name: string; email: string | null; phone: string | null; source: string | null };
 
 async function generateText(systemPrompt: string, userPrompt: string) {
@@ -54,6 +54,7 @@ async function ackViaEmail(agent: AckAgent, lead: AckLead) {
     leadName: lead.name,
     source: lead.source,
     businessName: agent.businessName,
+    assistantName: agent.assistantName,
   });
   const raw = await generateText(INSTANT_ACK_EMAIL_SYSTEM_PROMPT, userPrompt);
   const parsed = extractJson<{ subject: string; body: string }>(raw);
@@ -82,6 +83,7 @@ async function ackViaText(agent: AckAgent, lead: AckLead) {
     leadName: lead.name,
     source: lead.source,
     businessName: agent.businessName,
+    assistantName: agent.assistantName,
   });
   const raw = await generateText(INSTANT_ACK_SMS_SYSTEM_PROMPT, userPrompt);
   const parsed = extractJson<{ body: string }>(raw);

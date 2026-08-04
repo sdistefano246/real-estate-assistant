@@ -22,6 +22,7 @@ export const getCurrentAgent = cache(async () => {
       name: true,
       businessName: true,
       phone: true,
+      assistantName: true,
       dailyDigestEnabled: true,
       autoNurtureEnabled: true,
       autoPostInstagramEnabled: true,

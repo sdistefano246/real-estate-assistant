@@ -19,6 +19,12 @@ model Agent {
   name            String
   businessName    String?
   phone           String?
+  // Optional persona name for automated first-touch communication (missed-call
+  // auto-text, instant-ack drafts) — e.g. "Nora." Null means no persona: those
+  // messages stay generic/unsigned, exactly today's behavior. Deliberately not
+  // used on agent-initiated content (manual follow-up drafts, check-ins) —
+  // those still read as coming from the agent, not an assistant persona.
+  assistantName   String?
   autoAckEnabled  Boolean  @default(false)
   // Push automation (Phase 5). dailyDigestEnabled emails the agent their own
   // "needs attention" brief on a schedule — low risk (they're emailing
