@@ -96,6 +96,10 @@ async function maybeAutoPostToInstagram(
   photoUrls: string[]
 ) {
   const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostInstagramEnabled: true } });
+  console.error("[diag] Instagram auto-post gate:", {
+    autoPostInstagramEnabled: agent?.autoPostInstagramEnabled,
+    isInstagramConfigured: isInstagramConfigured(),
+  });
   if (!agent?.autoPostInstagramEnabled || !isInstagramConfigured()) return;
 
   const igPost = socialPosts.find((p) => p.platform === "instagram");
@@ -141,6 +145,10 @@ async function maybeAutoPostToFacebook(
   photoUrls: string[]
 ) {
   const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostFacebookEnabled: true } });
+  console.error("[diag] Facebook auto-post gate:", {
+    autoPostFacebookEnabled: agent?.autoPostFacebookEnabled,
+    isFacebookConfigured: isFacebookConfigured(),
+  });
   if (!agent?.autoPostFacebookEnabled || !isFacebookConfigured()) return;
 
   const fbPost = socialPosts.find((p) => p.platform === "facebook");
