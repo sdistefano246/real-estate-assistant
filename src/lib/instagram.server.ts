@@ -91,6 +91,38 @@ async function waitForContainerReady(containerId: string, accessToken: string): 
   throw new Error("Instagram media took too long to process");
 }
 
+// Meta's own container status check can report FINISHED moments before the
+// media_publish endpoint is actually able to use that creation_id — a real,
+// observed eventual-consistency gap between the two endpoints, not a logic
+// bug in waitForContainerReady above. Confirmed live: a carousel container
+// reported FINISHED, and the immediate publish call still failed with
+// "Media ID is not available." A short handful of retries with backoff
+// resolves it in practice; this is bounded (~7s max added latency across 3
+// retries), not an unbounded retry loop.
+async function publishMediaWithRetry(
+  igUserId: string,
+  creationId: string,
+  accessToken: string,
+  errorPrefix: string
+): Promise<string> {
+  const RETRY_DELAYS_MS = [1000, 2000, 4000];
+  let lastMessage = "unknown error";
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    const publishRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: creationId, access_token: accessToken }),
+    });
+    const publishJson = (await publishRes.json()) as GraphError & { id?: string };
+    if (publishRes.ok && publishJson.id) return publishJson.id;
+    lastMessage = publishJson.error?.message ?? publishRes.statusText;
+    if (attempt < RETRY_DELAYS_MS.length) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw new Error(`${errorPrefix}: ${lastMessage}`);
+}
+
 export async function publishToInstagram({
   imageUrl,
   caption,
@@ -118,17 +150,7 @@ export async function publishToInstagram({
 
   await waitForContainerReady(containerJson.id, accessToken);
 
-  const publishRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creation_id: containerJson.id, access_token: accessToken }),
-  });
-  const publishJson = (await publishRes.json()) as GraphError & { id?: string };
-  if (!publishRes.ok || !publishJson.id) {
-    throw new Error(`Instagram publish failed: ${publishJson.error?.message ?? publishRes.statusText}`);
-  }
-
-  return publishJson.id;
+  return publishMediaWithRetry(igUserId, containerJson.id, accessToken, "Instagram publish failed");
 }
 
 // Multi-photo variant (2-10 images) — a real carousel post, not repeated
@@ -194,15 +216,5 @@ export async function publishCarouselToInstagram({
 
   await waitForContainerReady(parentJson.id, accessToken);
 
-  const publishRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creation_id: parentJson.id, access_token: accessToken }),
-  });
-  const publishJson = (await publishRes.json()) as GraphError & { id?: string };
-  if (!publishRes.ok || !publishJson.id) {
-    throw new Error(`Instagram carousel publish failed: ${publishJson.error?.message ?? publishRes.statusText}`);
-  }
-
-  return publishJson.id;
+  return publishMediaWithRetry(igUserId, parentJson.id, accessToken, "Instagram carousel publish failed");
 }
