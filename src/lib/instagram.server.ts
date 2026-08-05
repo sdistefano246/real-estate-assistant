@@ -201,9 +201,7 @@ export async function publishCarouselToInstagram({
     throw new Error("INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_BUSINESS_ACCOUNT_ID are not set");
   }
 
-  const t0 = Date.now();
   const normalizedUrls = await Promise.all(imageUrls.map(normalizeImageForInstagram));
-  console.error("[diag3] normalize done at", Date.now() - t0, "ms");
 
   // Each child container is independent until the final CAROUSEL container
   // references them all, so create + poll them concurrently rather than one
@@ -225,7 +223,6 @@ export async function publishCarouselToInstagram({
     const batch = normalizedUrls.slice(i, i + CHILD_BATCH_SIZE);
     const batchIds = await Promise.all(batch.map((imageUrl) => createCarouselChild(igUserId, imageUrl, accessToken)));
     childIds.push(...batchIds);
-    console.error("[diag3] batch done, childIds so far:", childIds.length, "at", Date.now() - t0, "ms");
   }
 
   const parentRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
@@ -243,11 +240,7 @@ export async function publishCarouselToInstagram({
     throw new Error(`Instagram carousel container creation failed: ${parentJson.error?.message ?? parentRes.statusText}`);
   }
 
-  console.error("[diag3] parent container created at", Date.now() - t0, "ms");
   await waitForContainerReady(parentJson.id, accessToken);
-  console.error("[diag3] parent container ready at", Date.now() - t0, "ms");
 
-  const result = await publishMediaWithRetry(igUserId, parentJson.id, accessToken, "Instagram carousel publish failed");
-  console.error("[diag3] publish succeeded at", Date.now() - t0, "ms");
-  return result;
+  return publishMediaWithRetry(igUserId, parentJson.id, accessToken, "Instagram carousel publish failed");
 }
