@@ -73,7 +73,14 @@ export function isInstagramConfigured() {
   return Boolean(process.env.INSTAGRAM_ACCESS_TOKEN && process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID);
 }
 
-type GraphError = { error?: { message?: string; type?: string; code?: number } };
+type GraphError = {
+  error?: { message?: string; type?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
+};
+
+function describeGraphError(error: GraphError["error"], fallback: string): string {
+  if (!error) return fallback;
+  return `${error.message ?? "unknown error"} (type: ${error.type ?? "?"}, code: ${error.code ?? "?"}, subcode: ${error.error_subcode ?? "?"}, trace: ${error.fbtrace_id ?? "?"})`;
+}
 
 async function waitForContainerReady(containerId: string, accessToken: string): Promise<void> {
   const deadline = Date.now() + CONTAINER_POLL_TIMEOUT_MS;
@@ -115,7 +122,7 @@ async function publishMediaWithRetry(
     });
     const publishJson = (await publishRes.json()) as GraphError & { id?: string };
     if (publishRes.ok && publishJson.id) return publishJson.id;
-    lastMessage = publishJson.error?.message ?? publishRes.statusText;
+    lastMessage = describeGraphError(publishJson.error, publishRes.statusText);
     if (attempt < RETRY_DELAYS_MS.length) {
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
     }
