@@ -117,7 +117,11 @@ async function publishMediaWithRetry(
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     const publishRes = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // An explicit User-Agent is otherwise absent from Node's fetch — a
+      // known (unconfirmed, Meta-side) report of subcode 2207085 ("Generic
+      // Internal Error") on other Instagram Graph API endpoints found this
+      // cleared the error for some callers; cheap enough to try here too.
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
       body: JSON.stringify({ creation_id: creationId, access_token: accessToken }),
     });
     const publishJson = (await publishRes.json()) as GraphError & { id?: string };
