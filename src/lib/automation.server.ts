@@ -10,6 +10,7 @@ import { getUpcomingShowings } from "@/lib/upcoming-showings.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 import { isGoogleConnected } from "@/lib/google.server";
 import { syncBirthdaysFromGoogle } from "@/lib/birthday-sync.server";
+import { isListingSyncConfigured, syncNewListings } from "@/lib/listing-sync.server";
 
 // A single scheduled run should never blast an entire back-catalog of quiet
 // contacts in one morning — that reads as spam and burns sending reputation.
@@ -33,6 +34,7 @@ export type AgentAutomationResult = {
   nurtureSkippedNoEmail: number;
   digestSent: boolean;
   birthdaysSynced: number;
+  listingsOnboarded: number;
   errors: string[];
 };
 
@@ -75,8 +77,23 @@ async function runForAgent(agent: AutomationAgent): Promise<AgentAutomationResul
     nurtureSkippedNoEmail: 0,
     digestSent: false,
     birthdaysSynced: 0,
+    listingsOnboarded: 0,
     errors: [],
   };
+
+  // Opt-in via LISTING_SYNC_FEED_URL only — same "configured-or-not" pattern
+  // as every other integration in this app. Runs before the digest so a
+  // same-day-onboarded listing's auto-post outcome could be reflected in that
+  // morning's summary too (mirrors the Google birthday sync's ordering).
+  if (isListingSyncConfigured()) {
+    try {
+      const sync = await syncNewListings(agent.id);
+      result.listingsOnboarded = sync.onboarded;
+      result.errors.push(...sync.errors.map((e) => `listing sync: ${e}`));
+    } catch (error) {
+      result.errors.push(`listing sync: ${errorMessage(error)}`);
+    }
+  }
 
   if (agent.autoNurtureEnabled) {
     try {

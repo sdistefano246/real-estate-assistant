@@ -23,10 +23,6 @@ export async function generateListing(
 ): Promise<GenerateListingState> {
   const { agentId } = await verifySession();
 
-  if (!isAnthropicConfigured()) {
-    return { error: "Add ANTHROPIC_API_KEY to .env to enable listing generation." };
-  }
-
   const address = String(formData.get("address") ?? "").trim();
   const beds = Number(formData.get("beds"));
   const baths = Number(formData.get("baths"));
@@ -36,6 +32,41 @@ export async function generateListing(
 
   if (!address || !beds || !baths || !sqft || !price) {
     return { error: "Fill in address, beds, baths, sqft, and price." };
+  }
+
+  const photoUrls = formData.getAll("photoUrls").map(String).filter(Boolean);
+
+  const result = await createListingAndAutoPost({ agentId, address, beds, baths, sqft, price, features, photoUrls });
+  if ("error" in result) {
+    return { error: result.error };
+  }
+
+  revalidatePath("/dashboard/marketing");
+  return undefined;
+}
+
+type SocialPost = { platform: string; caption: string; hashtags: string[] };
+
+// The shared core of listing creation — real Claude generation, the DB row,
+// and the three best-effort auto-post attempts. Used by generateListing()
+// above (the manual form) and by the listing-sync cron job
+// (src/lib/listing-sync.server.ts) for automated onboarding — same logic,
+// same auto-post behavior, no duplication between the two paths.
+export async function createListingAndAutoPost(input: {
+  agentId: string;
+  address: string;
+  beds: number;
+  baths: number;
+  sqft: number;
+  price: number;
+  features: string;
+  photoUrls: string[];
+  sourceUrl?: string;
+}): Promise<{ listingId: string } | { error: string }> {
+  const { agentId, address, beds, baths, sqft, price, features, photoUrls, sourceUrl } = input;
+
+  if (!isAnthropicConfigured()) {
+    return { error: "Add ANTHROPIC_API_KEY to .env to enable listing generation." };
   }
 
   const client = getAnthropicClient();
@@ -51,15 +82,12 @@ export async function generateListing(
     return { error: "Generation failed — no text returned. Try again." };
   }
 
-  type SocialPost = { platform: string; caption: string; hashtags: string[] };
   let parsed: { description: string; socialPosts: SocialPost[] };
   try {
     parsed = extractJson(textBlock.text);
   } catch {
     return { error: "Generation returned an unexpected format. Try again." };
   }
-
-  const photoUrls = formData.getAll("photoUrls").map(String).filter(Boolean);
 
   const listing = await prisma.listing.create({
     data: {
@@ -70,6 +98,7 @@ export async function generateListing(
       sqft,
       price,
       features,
+      sourceUrl,
       generatedDescription: parsed.description,
       socialPosts: JSON.stringify(parsed.socialPosts),
       photos: {
@@ -82,8 +111,7 @@ export async function generateListing(
   await maybeAutoPostToFacebook(agentId, listing.id, parsed.socialPosts, photoUrls);
   await maybeAutoPostToTiktok(agentId, listing.id, parsed.socialPosts, photoUrls);
 
-  revalidatePath("/dashboard/marketing");
-  return undefined;
+  return { listingId: listing.id };
 }
 
 // Best-effort — a failure here (not configured, no photo, no IG post, a real

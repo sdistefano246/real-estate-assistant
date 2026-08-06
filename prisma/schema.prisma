@@ -119,6 +119,13 @@ model Listing {
   tiktokPostedAt  DateTime?
   tiktokPostError String?
 
+  // The source site's listing detail page URL, set only for listings created
+  // by the automated listing-sync cron job (see src/lib/listing-sync.server.ts).
+  // Manually-created listings leave this null. This is how the sync job knows
+  // a listing was already onboarded and skips it on future runs, instead of
+  // re-creating and re-posting it every day.
+  sourceUrl String? @unique
+
   photos ListingPhoto[]
 
   @@index([agentId])

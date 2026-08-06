@@ -5,7 +5,11 @@ import { runAutomation } from "@/lib/automation.server";
 export const dynamic = "force-dynamic";
 // Nurture generation + sends can outrun the default serverless budget; give the
 // job room. Vercel caps this per plan, but asking for more is harmless below it.
-export const maxDuration = 60;
+// Bumped from 60 for the listing-sync job (src/lib/listing-sync.server.ts) —
+// up to MAX_NEW_LISTINGS_PER_RUN new listings, each with a real Claude call
+// plus multi-platform auto-posting, on top of the existing digest/nurture
+// work, can plausibly exceed 60s on a day with several new listings.
+export const maxDuration = 120;
 
 /**
  * The scheduled push-automation endpoint (Phase 5). Vercel Cron hits this on the
@@ -36,9 +40,10 @@ export async function GET(request: NextRequest) {
       digestsSent: acc.digestsSent + (r.digestSent ? 1 : 0),
       nurtureSent: acc.nurtureSent + r.nurtureSent,
       birthdaysSynced: acc.birthdaysSynced + r.birthdaysSynced,
+      listingsOnboarded: acc.listingsOnboarded + r.listingsOnboarded,
       errors: acc.errors + r.errors.length,
     }),
-    { agents: 0, digestsSent: 0, nurtureSent: 0, birthdaysSynced: 0, errors: 0 }
+    { agents: 0, digestsSent: 0, nurtureSent: 0, birthdaysSynced: 0, listingsOnboarded: 0, errors: 0 }
   );
 
   return Response.json({ ok: true, ...summary, results });
