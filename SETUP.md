@@ -319,6 +319,21 @@ To run it on a schedule:
 
 To trigger a run by hand (e.g. to test): `curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron`
 
+#### Listing sync (auto-onboard new listings from a public agent site)
+
+Same cron, one more opt-in step: `syncNewListings()` (`src/lib/listing-sync.server.ts`) checks a
+public Century 21 agent site for new listings credited to the agent and runs each one through the
+real Marketing pipeline — same Claude-generated description/social copy and auto-post behaviour as
+adding a listing by hand on `/dashboard/marketing`, just unattended. A listing already onboarded
+(tracked by its source URL) is never re-created or re-posted on a later run, and at most 3 new
+listings are onboarded per run so a busy day can't blow the cron's time budget.
+
+Add to `.env` (and your Vercel project env): `LISTING_SYNC_FEED_URL="https://<agent-site>/listings/<active-listings-page>"`
+
+Unset means this step is a no-op, same as every other integration in this app — nothing to disable
+if you don't use it. Requires `CRON_SECRET` (above) already configured, since it only ever runs
+inside the scheduled `/api/cron` job.
+
 ### Calendar feed (subscribe from Google / Apple / Outlook)
 
 No external account needed. From `/dashboard/settings` → **Calendar**, generate a link and paste it
