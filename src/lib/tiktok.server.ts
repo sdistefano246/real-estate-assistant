@@ -1,4 +1,6 @@
 import "server-only";
+import { put } from "@vercel/blob";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db.server";
 import { getAppBaseUrl } from "@/lib/app-url.server";
 
@@ -191,6 +193,55 @@ export async function getConnectedAccountLabel(accessToken: string): Promise<str
   }
 }
 
+// TikTok's PULL_FROM_URL source requires the app to have verified ownership
+// of the URL/domain a post's media comes from (see SETUP.md and the
+// "URL properties" panel in the TikTok developer portal — this app's own
+// domain and its Vercel Blob storage domain are both verified there).
+// A listing's original photo URLs are neither when the listing came from the
+// automated listing-sync job (src/lib/listing-sync.server.ts) — those are the
+// source site's own CDN, a domain nobody here owns — so TikTok rejects them
+// with "Please review our URL ownership verification rules," confirmed live
+// on a real listing on 2026-08-08. Re-hosting each photo on the already-
+// verified Blob domain first sidesteps this entirely. Same download-then-
+// reupload approach as normalizeImageForInstagram in instagram.server.ts,
+// minus that function's aspect-ratio/JPEG-reencoding logic, which TikTok's
+// photo posts don't need. Falls back to the original URL on any failure —
+// worst case that photo fails the same ownership check it would have anyway,
+// no worse off than before this existed.
+async function rehostForTiktok(imageUrl: string): Promise<string> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return imageUrl;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+
+    const blob = await put(`tiktok-media/${randomUUID()}.${extension}`, buffer, {
+      access: "public",
+      contentType,
+    });
+    return blob.url;
+  } catch {
+    return imageUrl;
+  }
+}
+
+// Bounds how many photo re-hosts run at once — up to 35 real photos (TikTok's
+// own cap, applied below) fetched-and-reuploaded fully in parallel risks
+// overloading this serverless function; fully serial would be far too slow.
+// Same reasoning as instagram.server.ts's CHILD_BATCH_SIZE, no evidence yet
+// of a specific problem at a higher number, just a conservative default.
+const REHOST_BATCH_SIZE = 5;
+
+async function rehostAllForTiktok(imageUrls: string[]): Promise<string[]> {
+  const rehosted: string[] = [];
+  for (let i = 0; i < imageUrls.length; i += REHOST_BATCH_SIZE) {
+    const batch = imageUrls.slice(i, i + REHOST_BATCH_SIZE);
+    rehosted.push(...(await Promise.all(batch.map(rehostForTiktok))));
+  }
+  return rehosted;
+}
+
 export async function publishToTiktok({
   accessToken,
   photoUrls,
@@ -204,6 +255,8 @@ export async function publishToTiktok({
   description: string;
   privacyLevel: string;
 }): Promise<string> {
+  const rehostedPhotoUrls = await rehostAllForTiktok(photoUrls.slice(0, 35));
+
   const res = await fetch(`${API_BASE}/post/publish/content/init/`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
@@ -221,7 +274,7 @@ export async function publishToTiktok({
       },
       source_info: {
         source: "PULL_FROM_URL",
-        photo_images: photoUrls.slice(0, 35),
+        photo_images: rehostedPhotoUrls,
         photo_cover_index: 0,
       },
     }),
