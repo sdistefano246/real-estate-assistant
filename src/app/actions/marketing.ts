@@ -85,8 +85,18 @@ export async function createListingAndAutoPost(input: {
   let parsed: { description: string; socialPosts: SocialPost[] };
   try {
     parsed = extractJson(textBlock.text);
-  } catch {
-    return { error: "Generation returned an unexpected format. Try again." };
+  } catch (error) {
+    // Full raw text only to server logs (Vercel function logs) — it's a real
+    // listing description, not something to put in a widely-visible error
+    // string. The parse error's own message (e.g. position/token) travels
+    // with the returned error itself, since for the listing-sync path that's
+    // the only place it's actually visible (see listing-sync.server.ts's
+    // result.errors, surfaced all the way to /api/cron's response) — a
+    // generic "try again" here left the 2026-08-08 recurrence of this
+    // failure on Morley Avenue completely undiagnosable both times.
+    console.error("Listing generation returned unparseable JSON. Raw text:", textBlock.text);
+    const detail = error instanceof Error ? error.message : String(error);
+    return { error: `Generation returned an unexpected format (${detail}). Try again.` };
   }
 
   const listing = await prisma.listing.create({
