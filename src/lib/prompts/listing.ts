@@ -32,13 +32,13 @@ Example Facebook caption — match this STYLE and STRUCTURE exactly (emoji choic
 🏡 Bonus! A second 36' x 63' barn includes a 1-bedroom apartment complete with a kitchen and full bathroom—perfect for guests, caretakers, or additional income potential.
 Don't miss this one-of-a-kind country estate! 📞 Schedule your private showing today.
 
-Output ONLY valid JSON matching this exact shape, no other text before or after:
+Output ONLY valid JSON matching this exact shape, no other text before or after. Every caption is one JSON string value — where a caption has multiple lines (Facebook, TikTok), join them with a JSON-escaped \n, never a raw line break:
 {
   "description": "the full MLS listing description, 150-250 words",
   "socialPosts": [
     { "platform": "instagram", "caption": "just-listed announcement highlighting the property's standout feature, 1-2 punchy sentences, no hashtags in the caption text itself", "hashtags": ["5-8 relevant hashtags, lowercase, no # symbol"] },
-    { "platform": "facebook", "caption": "the emoji/bullet-list format described and exemplified above, as a single string with real newlines between lines", "hashtags": [] },
-    { "platform": "tiktok", "caption": "short on-camera walkthrough script: hook line, then 2-3 short spoken-style beats on standout features, then a call-to-action line — written as separate short lines, not one paragraph", "hashtags": ["5-7 hashtags mixing broad real estate tags and niche/local tags, lowercase, no # symbol"] }
+    { "platform": "facebook", "caption": "the emoji/bullet-list format described and exemplified above, its lines joined with \\n", "hashtags": [] },
+    { "platform": "tiktok", "caption": "short on-camera walkthrough script: hook line, then 2-3 short spoken-style beats on standout features, then a call-to-action line — its lines joined with \\n, not one paragraph", "hashtags": ["5-7 hashtags mixing broad real estate tags and niche/local tags, lowercase, no # symbol"] }
   ]
 }`;
 
