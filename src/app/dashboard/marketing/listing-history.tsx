@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteListing } from "@/app/actions/marketing";
+import { deleteListing, retryAutoPost } from "@/app/actions/marketing";
 import { downloadPhoto, filenameFromBlobUrl } from "@/lib/download-photo";
 
 type SocialPost = { platform: string; caption: string; hashtags: string[] };
@@ -78,7 +78,11 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
                 )}
                 {!listing.instagramPostedAt && listing.instagramPostError && (
                   <p className="mt-1 text-xs text-amber-700">
-                    Auto-post to Instagram didn&apos;t go through: {listing.instagramPostError}
+                    Auto-post to Instagram didn&apos;t go through: {listing.instagramPostError}{" "}
+                    <RetryButton
+                      pending={isPending}
+                      onClick={() => startTransition(() => retryAutoPost(listing.id, "instagram"))}
+                    />
                   </p>
                 )}
                 {listing.facebookPostedAt && (
@@ -88,7 +92,11 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
                 )}
                 {!listing.facebookPostedAt && listing.facebookPostError && (
                   <p className="mt-1 text-xs text-amber-700">
-                    Auto-post to Facebook didn&apos;t go through: {listing.facebookPostError}
+                    Auto-post to Facebook didn&apos;t go through: {listing.facebookPostError}{" "}
+                    <RetryButton
+                      pending={isPending}
+                      onClick={() => startTransition(() => retryAutoPost(listing.id, "facebook"))}
+                    />
                   </p>
                 )}
                 {listing.tiktokPostedAt && (
@@ -99,7 +107,11 @@ export function ListingHistory({ listings }: { listings: ListingItem[] }) {
                 )}
                 {!listing.tiktokPostedAt && listing.tiktokPostError && (
                   <p className="mt-1 text-xs text-amber-700">
-                    Auto-post to TikTok didn&apos;t go through: {listing.tiktokPostError}
+                    Auto-post to TikTok didn&apos;t go through: {listing.tiktokPostError}{" "}
+                    <RetryButton
+                      pending={isPending}
+                      onClick={() => startTransition(() => retryAutoPost(listing.id, "tiktok"))}
+                    />
                   </p>
                 )}
               </div>
@@ -242,6 +254,17 @@ function PlatformPost({
         )}
       </div>
     </div>
+  );
+}
+
+// Re-runs just the one failed platform's auto-post (see retryAutoPost in
+// actions/marketing.ts) — reuses the listing's already-generated caption,
+// no regeneration involved.
+function RetryButton({ pending, onClick }: { pending: boolean; onClick: () => void }) {
+  return (
+    <button disabled={pending} onClick={onClick} className="font-medium text-teal-800 hover:text-teal-900 disabled:opacity-50">
+      Retry
+    </button>
   );
 }
 

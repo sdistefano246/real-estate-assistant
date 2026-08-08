@@ -117,14 +117,23 @@ export async function createListingAndAutoPost(input: {
 // Best-effort — a failure here (not configured, no photo, no IG post, a real
 // API error) never fails listing generation itself. The listing is already
 // saved by the time this runs; the outcome just gets recorded on it.
+//
+// `force` skips the agent's auto-post toggle (but never the platform-configured
+// check — no toggle can substitute for missing credentials) — used by
+// retryAutoPost() below, since a deliberate manual retry click shouldn't be
+// silently swallowed by a setting that only governs automatic posting.
 async function maybeAutoPostToInstagram(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  photoUrls: string[]
+  photoUrls: string[],
+  options: { force?: boolean } = {}
 ) {
-  const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostInstagramEnabled: true } });
-  if (!agent?.autoPostInstagramEnabled || !isInstagramConfigured()) return;
+  if (!isInstagramConfigured()) return;
+  if (!options.force) {
+    const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostInstagramEnabled: true } });
+    if (!agent?.autoPostInstagramEnabled) return;
+  }
 
   const igPost = socialPosts.find((p) => p.platform === "instagram");
   if (!igPost) return;
@@ -161,15 +170,19 @@ async function maybeAutoPostToInstagram(
 }
 
 // Same best-effort shape as maybeAutoPostToInstagram — never fails listing
-// generation itself.
+// generation itself. See its comment above for what `force` does.
 async function maybeAutoPostToFacebook(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  photoUrls: string[]
+  photoUrls: string[],
+  options: { force?: boolean } = {}
 ) {
-  const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostFacebookEnabled: true } });
-  if (!agent?.autoPostFacebookEnabled || !isFacebookConfigured()) return;
+  if (!isFacebookConfigured()) return;
+  if (!options.force) {
+    const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { autoPostFacebookEnabled: true } });
+    if (!agent?.autoPostFacebookEnabled) return;
+  }
 
   const fbPost = socialPosts.find((p) => p.platform === "facebook");
   if (!fbPost) return;
@@ -212,18 +225,22 @@ async function maybeAutoPostToFacebook(
 // post (to learn which privacy levels — e.g. SELF_ONLY pre-audit — are
 // currently allowed). Both wrapped in the same catch as the publish call
 // itself, since a failure at any of these steps is equally "auto-post didn't
-// go through" from the listing's point of view.
+// go through" from the listing's point of view. See maybeAutoPostToInstagram's
+// comment above for what `force` does — `isTiktokConnected` is checked either
+// way, since force can bypass the toggle but never a missing OAuth connection.
 async function maybeAutoPostToTiktok(
   agentId: string,
   listingId: string,
   socialPosts: { platform: string; caption: string; hashtags: string[] }[],
-  photoUrls: string[]
+  photoUrls: string[],
+  options: { force?: boolean } = {}
 ) {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     select: { autoPostTiktokEnabled: true, tiktokOpenId: true },
   });
-  if (!agent?.autoPostTiktokEnabled || !isTiktokConnected(agent)) return;
+  if (!agent || !isTiktokConnected(agent)) return;
+  if (!options.force && !agent.autoPostTiktokEnabled) return;
 
   const tiktokPost = socialPosts.find((p) => p.platform === "tiktok");
   if (!tiktokPost) return;
@@ -267,5 +284,33 @@ async function maybeAutoPostToTiktok(
 export async function deleteListing(listingId: string) {
   const { agentId } = await verifySession();
   await prisma.listing.deleteMany({ where: { id: listingId, agentId } });
+  revalidatePath("/dashboard/marketing");
+}
+
+// Re-attempts a single platform's auto-post for a listing that already has
+// its Claude-generated description/social copy — no regeneration, just
+// replays the same publish step with `force: true` (see maybeAutoPostTo*
+// above) so a stale toggle setting can't silently no-op a deliberate retry.
+// Ownership-scoped the same way deleteListing is, since this is reachable
+// directly from a client component.
+export async function retryAutoPost(listingId: string, platform: "instagram" | "facebook" | "tiktok") {
+  const { agentId } = await verifySession();
+  const listing = await prisma.listing.findFirst({
+    where: { id: listingId, agentId },
+    include: { photos: { orderBy: { order: "asc" } } },
+  });
+  if (!listing) return;
+
+  const socialPosts: SocialPost[] = listing.socialPosts ? JSON.parse(listing.socialPosts) : [];
+  const photoUrls = listing.photos.map((p) => p.url);
+
+  if (platform === "instagram") {
+    await maybeAutoPostToInstagram(agentId, listing.id, socialPosts, photoUrls, { force: true });
+  } else if (platform === "facebook") {
+    await maybeAutoPostToFacebook(agentId, listing.id, socialPosts, photoUrls, { force: true });
+  } else {
+    await maybeAutoPostToTiktok(agentId, listing.id, socialPosts, photoUrls, { force: true });
+  }
+
   revalidatePath("/dashboard/marketing");
 }
