@@ -43,6 +43,7 @@ export function isListingSyncConfigured(): boolean {
 }
 
 export type ListingSyncResult = {
+  candidatesFound: number;
   onboarded: number;
   skipped: number;
   errors: string[];
@@ -50,7 +51,7 @@ export type ListingSyncResult = {
 
 export async function syncNewListings(agentId: string): Promise<ListingSyncResult> {
   const feedUrl = process.env.LISTING_SYNC_FEED_URL;
-  const result: ListingSyncResult = { onboarded: 0, skipped: 0, errors: [] };
+  const result: ListingSyncResult = { candidatesFound: 0, onboarded: 0, skipped: 0, errors: [] };
   if (!feedUrl) return result;
 
   let candidates: Map<string, FeedCardFacts>;
@@ -60,6 +61,11 @@ export async function syncNewListings(agentId: string): Promise<ListingSyncResul
     result.errors.push(`feed scan failed: ${errorMessage(error)}`);
     return result;
   }
+  // Surfaced all the way to the cron response so "configured but nothing
+  // happened" is distinguishable from "never actually scanned anything" —
+  // a silently-broken feed URL/env var otherwise looks identical to a
+  // legitimately quiet day.
+  result.candidatesFound = candidates.size;
 
   for (const [detailUrl, feedFacts] of candidates) {
     if (result.onboarded >= MAX_NEW_LISTINGS_PER_RUN) break;

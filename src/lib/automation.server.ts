@@ -34,6 +34,7 @@ export type AgentAutomationResult = {
   nurtureSkippedNoEmail: number;
   digestSent: boolean;
   birthdaysSynced: number;
+  listingCandidatesFound: number;
   listingsOnboarded: number;
   errors: string[];
 };
@@ -77,6 +78,7 @@ async function runForAgent(agent: AutomationAgent): Promise<AgentAutomationResul
     nurtureSkippedNoEmail: 0,
     digestSent: false,
     birthdaysSynced: 0,
+    listingCandidatesFound: 0,
     listingsOnboarded: 0,
     errors: [],
   };
@@ -88,6 +90,7 @@ async function runForAgent(agent: AutomationAgent): Promise<AgentAutomationResul
   if (isListingSyncConfigured()) {
     try {
       const sync = await syncNewListings(agent.id);
+      result.listingCandidatesFound = sync.candidatesFound;
       result.listingsOnboarded = sync.onboarded;
       result.errors.push(...sync.errors.map((e) => `listing sync: ${e}`));
     } catch (error) {

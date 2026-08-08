@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { runAutomation } from "@/lib/automation.server";
+import { isListingSyncConfigured } from "@/lib/listing-sync.server";
 
 // DB reads + LLM calls + email sends every time — never prerender or cache this.
 export const dynamic = "force-dynamic";
@@ -40,11 +41,15 @@ export async function GET(request: NextRequest) {
       digestsSent: acc.digestsSent + (r.digestSent ? 1 : 0),
       nurtureSent: acc.nurtureSent + r.nurtureSent,
       birthdaysSynced: acc.birthdaysSynced + r.birthdaysSynced,
+      listingCandidatesFound: acc.listingCandidatesFound + r.listingCandidatesFound,
       listingsOnboarded: acc.listingsOnboarded + r.listingsOnboarded,
       errors: acc.errors + r.errors.length,
     }),
-    { agents: 0, digestsSent: 0, nurtureSent: 0, birthdaysSynced: 0, listingsOnboarded: 0, errors: 0 }
+    { agents: 0, digestsSent: 0, nurtureSent: 0, birthdaysSynced: 0, listingCandidatesFound: 0, listingsOnboarded: 0, errors: 0 }
   );
 
-  return Response.json({ ok: true, ...summary, results });
+  // Explicit rather than inferred from listingsOnboarded/errors being zero —
+  // those look identical whether the feature is off or on-and-quiet, which is
+  // exactly what made a silently-broken LISTING_SYNC_FEED_URL hard to diagnose.
+  return Response.json({ ok: true, listingSyncConfigured: isListingSyncConfigured(), ...summary, results });
 }
