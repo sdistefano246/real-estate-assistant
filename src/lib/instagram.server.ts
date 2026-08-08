@@ -91,7 +91,7 @@ async function waitForContainerReady(containerId: string, accessToken: string): 
     const statusJson = (await statusRes.json()) as GraphError & { status_code?: string };
     if (statusJson.status_code === "FINISHED") return;
     if (statusJson.status_code === "ERROR") {
-      throw new Error(`Instagram media processing failed: ${statusJson.error?.message ?? "unknown error"}`);
+      throw new Error(`Instagram media processing failed: ${describeGraphError(statusJson.error, "unknown error")}`);
     }
     await new Promise((resolve) => setTimeout(resolve, CONTAINER_POLL_INTERVAL_MS));
   }
