@@ -57,6 +57,13 @@ model Agent {
   tiktokAccessToken     String?
   tiktokRefreshToken    String?
   tiktokTokenExpiresAt  DateTime?
+  // Best-effort display label for which real TikTok account is connected
+  // ("@handle", falling back to a nickname) — the developer app itself
+  // (see TikTok's developer portal) doesn't say this, since one app can be
+  // authorized by many different creator accounts. Captured once at connect
+  // time (see /api/tiktok/callback); null just means it wasn't available,
+  // never blocks the connection itself (see getConnectedAccountLabel).
+  tiktokAccountLabel String?
   // Google OAuth connection — powers Google Contacts birthday sync (Sphere)
   // and on-demand Gmail thread history (Leads/Sphere). Read-only scopes, no
   // unsupervised sending, so there's no enabled/disabled toggle the way

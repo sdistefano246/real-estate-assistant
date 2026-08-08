@@ -8,11 +8,13 @@ export function TiktokSettings({
   configured,
   connected,
   autoPostEnabled,
+  accountLabel,
   status,
 }: {
   configured: boolean;
   connected: boolean;
   autoPostEnabled: boolean;
+  accountLabel: string | null;
   status: "connected" | "error" | undefined;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -59,7 +61,17 @@ export function TiktokSettings({
 
       {configured && connected && (
         <>
-          <div className="mt-4 flex items-center gap-3">
+          <p className="mt-4 text-xs text-stone-600">
+            {accountLabel ? (
+              <>
+                Connected as <span className="font-medium text-teal-900">{accountLabel}</span>
+              </>
+            ) : (
+              "Connected — account name unavailable (TikTok didn't return one, or this was connected before this app started recording it)."
+            )}
+          </p>
+
+          <div className="mt-3 flex items-center gap-3">
             <button
               disabled={isPending}
               onClick={() => startTransition(() => setAutoPostTiktokEnabled(!autoPostEnabled))}
