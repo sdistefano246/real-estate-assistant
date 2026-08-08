@@ -47,6 +47,7 @@ export default async function SettingsPage({
             configured={isTiktokConfigured()}
             connected={agent ? isTiktokConnected(agent) : false}
             autoPostEnabled={agent?.autoPostTiktokEnabled ?? false}
+            accountLabel={agent?.tiktokAccountLabel ?? null}
             status={tiktokStatus}
           />
         </div>

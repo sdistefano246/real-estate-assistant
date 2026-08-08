@@ -17,6 +17,7 @@ export async function disconnectTiktok() {
       tiktokRefreshToken: null,
       tiktokTokenExpiresAt: null,
       tiktokOpenId: null,
+      tiktokAccountLabel: null,
       autoPostTiktokEnabled: false,
     },
   });

@@ -39,6 +39,7 @@ export const getCurrentAgent = cache(async () => {
       autoPostTiktokEnabled: true,
       tiktokOpenId: true,
       tiktokTokenExpiresAt: true,
+      tiktokAccountLabel: true,
       googleEmail: true,
       googleTokenExpiresAt: true,
       googleContactsSyncedAt: true,

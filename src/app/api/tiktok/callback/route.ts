@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { verifySession } from "@/lib/dal.server";
 import { prisma } from "@/lib/db.server";
-import { exchangeCodeForToken } from "@/lib/tiktok.server";
+import { exchangeCodeForToken, getConnectedAccountLabel } from "@/lib/tiktok.server";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,9 @@ export async function GET(request: Request) {
 
   try {
     const { accessToken, refreshToken, expiresIn, openId } = await exchangeCodeForToken(code);
+    // Best-effort — a failure here never fails the connection itself, since
+    // the tokens above are what actually matter (see getConnectedAccountLabel).
+    const accountLabel = await getConnectedAccountLabel(accessToken);
     await prisma.agent.update({
       where: { id: agentId },
       data: {
@@ -41,6 +44,7 @@ export async function GET(request: Request) {
         tiktokRefreshToken: refreshToken,
         tiktokTokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
         tiktokOpenId: openId,
+        tiktokAccountLabel: accountLabel,
       },
     });
     return settingsRedirect(request, "connected");

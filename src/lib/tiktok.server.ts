@@ -164,6 +164,33 @@ export async function getBestPrivacyLevel(accessToken: string): Promise<string> 
   return options.find((option) => option === "SELF_ONLY") ?? options[0];
 }
 
+// Best-effort label for which real TikTok account is connected — the
+// developer app itself (e.g. "Jarvis_runner" in the TikTok developer portal)
+// says nothing about this, since one app can be authorized by many different
+// creator accounts. Deliberately a separate call from getBestPrivacyLevel
+// above rather than sharing its result: that function runs on the hot
+// publish path and is already proven there, so this stays isolated rather
+// than risking a shared refactor touching it. Per TikTok's documented
+// creator_info response shape (creator_username / creator_nickname sit
+// alongside privacy_level_options in the same `data` object) — not
+// separately live-verified beyond that. Returns null on any failure; this is
+// a display nicety, never something that should block a connection.
+export async function getConnectedAccountLabel(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/post/publish/creator_info/query/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+    });
+    const json = (await res.json()) as TiktokApiError & {
+      data?: { creator_username?: string; creator_nickname?: string };
+    };
+    if (!res.ok || !json.data) return null;
+    return json.data.creator_username ? `@${json.data.creator_username}` : (json.data.creator_nickname ?? null);
+  } catch {
+    return null;
+  }
+}
+
 export async function publishToTiktok({
   accessToken,
   photoUrls,
